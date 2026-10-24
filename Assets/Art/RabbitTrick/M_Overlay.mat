@@ -29,6 +29,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _HideLegs: 0
     - _Magician: 0
     - _Unlit: 1
     - _UseSpriteColor: 1
