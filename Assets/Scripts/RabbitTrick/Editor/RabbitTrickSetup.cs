@@ -49,6 +49,36 @@ namespace Sleight.RabbitTrick.EditorTools
                 }
             }
             finally { RabbitTrickGame.SimulateInEditor = false; }
+
+            // 舞台后侧：拿着兔子在后侧穿过追光不会露馅，回到前侧被照到才会；后侧够不着箱盖
+            game.JumpToLevel(0);
+            if (game.InDemo) game.EndDemo();
+            game.Rules.ShowEmpty(1f, true, true);
+            game.Hands.SelectHand(0);
+            for (int i = 0; i < 200 && Mathf.Abs(game.Hands.BodyPosition.x - 1.55f) > 0.01f; i++)
+                game.Hands.MoveBody(game, Vector2.right * Mathf.Clamp(1.55f - game.Hands.BodyPosition.x, -0.05f, 0.05f));
+            game.Hands.Selected.position = game.RabbitPosition + Vector2.up * 0.2f;
+            game.Hands.Grab(game);
+            bool grabbed = game.Hands.Selected.holding == HandItem.Rabbit;
+            for (int i = 0; i < 40; i++) game.Hands.MoveBody(game, Vector2.up * 0.05f);
+            bool inBack = game.Hands.InBack;
+            game.Audience.ResetLight(game.RabbitPosition.x);
+            game.Evaluate(0.1f);
+            bool hiddenOk = !game.Rules.Failed;
+            game.Hands.Release(game);
+            game.Hands.Selected.position = game.LidHandle;
+            game.Hands.Grab(game);
+            bool lidBlocked = game.Hands.Selected.holding == HandItem.None;
+            game.Hands.Selected.position = game.RabbitPosition + Vector2.up * 0.2f;
+            game.Hands.Grab(game);
+            for (int i = 0; i < 40; i++) game.Hands.MoveBody(game, Vector2.down * 0.05f);
+            game.Evaluate(0.1f);
+            bool frontCaught = game.Rules.Failed;
+            bool laneOk = grabbed && inBack && hiddenOk && lidBlocked && frontCaught;
+            ok &= laneOk;
+            report.AppendLine((laneOk ? "PASS  " : "FAIL  ") + $"back of stage: grabbed={grabbed} inBack={inBack} hiddenInLight={hiddenOk} lidBlocked={lidBlocked} caughtAtFront={frontCaught}");
+            game.ResetTrick();
+
             Directory.CreateDirectory("Logs");
             File.WriteAllText("Logs/DemoValidation.txt", report.ToString());
             Debug.Log("[RabbitTrick] Demo validation\n" + report);

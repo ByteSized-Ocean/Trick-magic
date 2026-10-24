@@ -30,8 +30,9 @@ namespace Sleight.RabbitTrick
         Transform cabinet, curtainPivot, curtainHandle, hatchPivot, assistantT, dummyT;
 
         // 芭蕾女郎：完成第一步后从舞台左侧慢慢踮脚走上来，追光跟着她跳 20 秒，然后她慢慢退场，灯光再照原样走
-        const float BalletEnter = 5f, BalletHold = 20f, BalletExit = 5f;
-        const float BalletOffX = -0.8f, BalletStageX = 2.4f;
+        // 跳舞的 20 秒里她带着追光在全台慢慢来回（一个来回 16 秒），玩家要趁她离开柜子的空当动手
+        const float BalletEnter = 4f, BalletHold = 20f, BalletExit = 6f;
+        const float BalletOffX = -0.8f, BalletStageX = 1.4f, BalletSweepCenter = 5f, BalletSweepHalf = 3.6f, BalletSweepPeriod = 16f;
         float balletTime = -1f;     // -1 = 还没出场
         Transform ballerina, ballerinaSpin;
         public bool BalletOnStage => balletTime >= 0f && balletTime < BalletEnter + BalletHold + BalletExit;
@@ -62,6 +63,8 @@ namespace Sleight.RabbitTrick
             p.velocity = Vector2.zero;
             p.heldBy = -1;
             p.inside = false;
+            p.back = false;
+            p.floorY = Floor;
         }
 
         // ------------------------------------------------------------ 手
@@ -82,13 +85,17 @@ namespace Sleight.RabbitTrick
 
             int best = -1;
             float bestDist = float.MaxValue;
-            Consider(CurtainId, Vector2.Distance(hand.position, CurtainHandle), HandleRadius, CurtainHandle, index, ref best, ref bestDist);
-            Consider(HatchId, Vector2.Distance(hand.position, HatchHandle), HandleRadius, HatchHandle, index, ref best, ref bestDist);
+            if (!InBack)   // 柜子在前侧，站在后侧够不着
+            {
+                Consider(CurtainId, Vector2.Distance(hand.position, CurtainHandle), HandleRadius, CurtainHandle, index, ref best, ref bestDist);
+                Consider(HatchId, Vector2.Distance(hand.position, HatchHandle), HandleRadius, HatchHandle, index, ref best, ref bestDist);
+            }
             foreach (var id in new[] { AssistantId, DummyId })
             {
                 var p = Prop(id);
                 if (p.Held) continue;
                 if (p.inside && !(open > 0.5f || hatch > 0.5f)) continue;   // 柜门都关着就拿不到里面的东西
+                if ((p.inside ? false : p.back) != InBack) continue;        // 只抓得到自己这一层的东西
                 float d = p.DistanceTo(hand.position);
                 if (d <= PropRadius && d < bestDist) { best = id; bestDist = d; }
             }
@@ -146,6 +153,7 @@ namespace Sleight.RabbitTrick
         // 从前帘或拉开的暗门放进柜子
         bool TryPutInside(LooseProp p)
         {
+            if (p.back) return false;   // 从后侧够不着柜子
             var c = p.Center;
             bool throughFront = open >= 0.7f && Mathf.Abs(c.x - CabX) <= 0.55f && c.y < 3.4f;
             bool throughHatch = hatch >= 0.6f && c.x > CabX - 0.2f && c.x < HatchX + 0.45f && c.y < 3.4f;
@@ -178,6 +186,7 @@ namespace Sleight.RabbitTrick
             }
             foreach (var p in new[] { assistant, dummy })
             {
+                FollowLane(p, Floor);
                 if (p.Held) p.Follow(game.Hands.Hands[p.heldBy].position);
                 else p.Tick(dt);
             }
@@ -237,10 +246,13 @@ namespace Sleight.RabbitTrick
             {
                 if (balletTime < BalletEnter) return Mathf.Lerp(BalletOffX, BalletStageX, Mathf.SmoothStep(0, 1, balletTime / BalletEnter));
                 float t = balletTime - BalletEnter;
-                if (t < BalletHold) return BalletStageX + Mathf.Sin(t * 0.9f) * 0.35f;   // 原地小范围来回旋转
-                return Mathf.Lerp(BalletStageX, BalletOffX, Mathf.SmoothStep(0, 1, (t - BalletHold) / BalletExit));
+                if (t < BalletHold) return SweepX(t);
+                return Mathf.Lerp(SweepX(BalletHold), BalletOffX, Mathf.SmoothStep(0, 1, (t - BalletHold) / BalletExit));
             }
         }
+
+        // 从左边 1.4 出发，慢慢扫到右边 8.6 再回来；最快约 1.4 单位/秒
+        static float SweepX(float t) => BalletSweepCenter - BalletSweepHalf * Mathf.Cos(t / BalletSweepPeriod * Mathf.PI * 2f);
 
         // 在柜子外、不在侧幕后、又被光照到
         bool OutInView(LooseProp p) => !p.inside && !InWings(p.Center.x) && p.Visible(game.Audience);
@@ -435,6 +447,8 @@ namespace Sleight.RabbitTrick
             curtainHandle.position = new Vector3(CurtainHandle.x, CurtainHandle.y, -0.1f);
             assistantT.position = new Vector3(assistant.position.x, assistant.position.y, -0.05f);
             dummyT.position = new Vector3(dummy.position.x, dummy.position.y, -0.05f);
+            SetBehind(assistantT, assistant.back && !assistant.inside);
+            SetBehind(dummyT, dummy.back && !dummy.inside);
         }
 
         static Color Hex(uint rgb) => new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 255);

@@ -45,6 +45,7 @@ namespace Sleight.RabbitTrick
             hoop.floorY = StandTop;     // 挂在架子上
             hoop.velocity = Vector2.zero;
             hoop.heldBy = -1;
+            hoop.back = false;
         }
 
         // ------------------------------------------------------------ 手
@@ -60,8 +61,8 @@ namespace Sleight.RabbitTrick
                 return true;
             }
             float leverDist = Vector2.Distance(hand.position, LeverHandle);
-            bool leverOk = leverDist <= 0.34f && Vector2.Distance(game.Hands.Shoulder(index), LeverHandle) <= game.Hands.Reach;
-            float hoopDist = hoop.Held ? float.MaxValue : RingDistance(hand.position);
+            bool leverOk = !InBack && leverDist <= 0.34f && Vector2.Distance(game.Hands.Shoulder(index), LeverHandle) <= game.Hands.Reach;
+            float hoopDist = hoop.Held || hoop.back != InBack ? float.MaxValue : RingDistance(hand.position);
             bool hoopOk = hoopDist <= 0.2f;
             if (!leverOk && !hoopOk) return false;
 
@@ -123,6 +124,7 @@ namespace Sleight.RabbitTrick
                 liftVel += 6f * dt;
                 lift = Mathf.Max(0f, lift - liftVel * dt);
             }
+            if (hoop.Held || hoop.back) FollowLane(hoop, Floor);
             if (hoop.Held) hoop.Follow(game.Hands.Hands[hoop.heldBy].position);
             else hoop.Tick(dt);
 
@@ -148,7 +150,7 @@ namespace Sleight.RabbitTrick
             {
                 float left = TableX - BoardHalf - 0.05f, right = TableX + BoardHalf + 0.05f;
                 var c = HoopCenter;
-                bool inBand = hoop.Held && Mathf.Abs(c.y - BoardCenter.y) <= 0.4f;
+                bool inBand = hoop.Held && !hoop.back && Mathf.Abs(c.y - BoardCenter.y) <= 0.4f;   // 要在前侧、观众看得见的地方套
                 if (!inBand || !Floating || !boardLit) { hoopFrom = 0; StepProgress = 0f; return; }
                 if (hoopFrom == 0)
                 {
@@ -257,6 +259,7 @@ namespace Sleight.RabbitTrick
             rod.SetPosition(1, new Vector3(TableX + 0.05f, BoardY, 0));
             lever.position = new Vector3(LeverHandle.x, LeverHandle.y, -0.05f);
             hoopT.position = new Vector3(hoop.position.x, hoop.position.y, -0.1f);
+            ring.sortingOrder = hoop.back ? 12 : 26;
         }
 
         static Color Hex(uint rgb) => new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 255);
