@@ -20,7 +20,7 @@ namespace Sleight.RabbitTrick
         static readonly float[] PatienceByLevel = { 50f, 70f, 90f };
         // 追光偏向舞台某一段：(机会, 区间左, 区间右, 最短停留, 最长停留)。
         // 第 2 关偏左，给足暗处换人的时间；第 3 关偏中间，悬浮桌在 x 5.2，让她多被照到
-        static readonly float[][] BiasByLevel = { new float[5], new[] { 0.75f, 1.4f, 3.0f, 7f, 11f }, new[] { 0.7f, 4.6f, 5.8f, 4.5f, 7f } };
+        static readonly float[][] BiasByLevel = { new float[5], new[] { 0.6f, 1.4f, 3.0f, 3.5f, 5.5f }, new[] { 0.7f, 4.6f, 5.8f, 4.5f, 7f } };
         // 追光：停留最短 / 最长、移动最短 / 最长（秒），逐关更快
         static readonly Vector4[] PaceByLevel = { new Vector4(2.8f, 4.6f, 1.1f, 1.7f), new Vector4(2.2f, 3.6f, 0.9f, 1.4f), new Vector4(1.8f, 3.0f, 0.7f, 1.1f) };
         public StageTrick Trick => tricks[Mathf.Clamp(Level, 0, tricks.Length - 1)];
@@ -56,6 +56,7 @@ namespace Sleight.RabbitTrick
         public float BoxX { get; private set; }
         public float LidAmount { get; private set; }
         public Vector2 RabbitPosition { get; set; }
+        public bool RabbitBack { get; set; }   // 兔子在舞台后侧：观众看不见，只有站在后侧才抓得到
         public float ResultAge { get; private set; }
         public Vector2 BoxHandle => new Vector2(BoxX, 1.57f);
         public Vector2 BoxOpening => new Vector2(BoxX, 2.16f);
@@ -69,7 +70,8 @@ namespace Sleight.RabbitTrick
         public Vector2 DancerHandle => new Vector2(Audience.DancerX + 0.72f, 2.45f);
         float rabbitFallVel, lidFallVel;
         bool rabbitFalling;
-        const float Gravity = 9.8f, RabbitFloorY = 1.5f;
+        const float Gravity = 9.8f;
+        float RabbitFloorY => 1.5f + (RabbitBack ? DualHandController.LaneLift : 0f);
         string notification;
         float notificationUntil;
         bool resultSoundPlayed;
@@ -84,11 +86,14 @@ namespace Sleight.RabbitTrick
             StartDemo();
         }
 
-        public void StartDemo()
+        public void StartDemo() => StartDemo(false);
+
+        // looping = true：演示演完一遍又从头开始，跳过锁不再重新计时
+        void StartDemo(bool looping)
         {
             ResetTrick();
             InDemo = true;
-            DemoAge = 0f;
+            if (!looping) DemoAge = 0f;
             Audience.Scripted = true;
             demo = new TrickDemo(this);
             if (Trick != null) Trick.AddDemo(demo);
@@ -136,13 +141,21 @@ namespace Sleight.RabbitTrick
                 Audience.Tick(dt);
                 if (Trick != null) Trick.Tick(dt);
                 else { TickFalling(dt); Evaluate(dt); }
-                if (demo.Done) EndDemo();
+                if (demo.Done) FinishDemoRound();
             }
             else
             {
                 ResultAge += dt;
-                if (ResultAge > 1.6f) EndDemo();
+                if (ResultAge > 1.6f) FinishDemoRound();
             }
+        }
+
+        // 演示演完一遍：玩家没按键跳过就从头再放（编辑器验证时直接结束）
+        void FinishDemoRound()
+        {
+            if (SimulateInEditor) { EndDemo(); return; }
+            LastDemoSucceeded = IsFinished && !IsFailed;
+            StartDemo(true);
         }
 
         public void ResetTrick()
@@ -151,6 +164,7 @@ namespace Sleight.RabbitTrick
             BoxX = 5.85f;
             LidAmount = 0f;
             RabbitPosition = new Vector2(1.3f, 1.5f);
+            RabbitBack = false;
             ResultAge = 0f;
             notification = "";
             notificationUntil = 0;
@@ -278,7 +292,8 @@ namespace Sleight.RabbitTrick
             Rules.ShowEmpty(dt, LidAmount >= 0.92f, boxLit);
             Rules.CloseBox(LidAmount <= 0.08f);
             if (Rules.TryReveal(LidAmount >= 0.92f, boxLit)) return;
-            bool rabbitLit = Audience.RabbitVisibleInLight(Rules.RabbitInside ? BoxOpening : RabbitPosition);
+            bool rabbitLit = Rules.RabbitInside ? Audience.RabbitVisibleInLight(BoxOpening)
+                : !RabbitBack && Audience.RabbitVisibleInLight(RabbitPosition);   // 后侧的兔子观众看不见
             Rules.CheckExposure(rabbitLit, LidAmount > 0.2f);
         }
 
@@ -298,6 +313,7 @@ namespace Sleight.RabbitTrick
         public bool TryPutRabbit()
         {
             if (Rules.Step == TrickStep.ShowEmpty) { Notify("Show the audience the empty box first, then hide the rabbit."); return false; }
+            if (RabbitBack) { Notify("Come to the FRONT of the stage (S) to reach the box."); return false; }
             if (LidAmount < 0.92f) { Notify("The lid is not fully open: grab it and pull UP."); return false; }
             bool inserted = Rules.TryInsert(LidAmount >= 0.92f,
                 Audience.RabbitVisibleInLight(RabbitPosition), Audience.Illuminates(BoxOpening, 0.24f) && !Audience.CoversRabbit(BoxOpening));
@@ -308,7 +324,7 @@ namespace Sleight.RabbitTrick
         public void DropRabbit()
         {
             // Releasing in the light must be checked before the rabbit returns to the floor.
-            Rules.CheckExposure(Audience.RabbitVisibleInLight(RabbitPosition), false);
+            Rules.CheckExposure(!RabbitBack && Audience.RabbitVisibleInLight(RabbitPosition), false);
             // 中途松手：兔子从手里受重力掉下去，落地轻轻弹一下（TickFalling）。
             rabbitFalling = RabbitPosition.y > RabbitFloorY + 0.001f;
             rabbitFallVel = 0f;
@@ -372,6 +388,8 @@ namespace Sleight.RabbitTrick
         {
             if (IsFailed || IsFinished) return "";
             if (Time.unscaledTime < notificationUntil) return notification;
+            if (Hands.InBack && Hands.Selected.holding == HandItem.None)
+                return "BACK OF THE STAGE: the light cannot reach you here, but you cannot reach the front either. S comes forward.";
             if (Trick != null) return Trick.Hint();
             if (Hands.Selected.holding == HandItem.Lid)
                 return chinese ? "抓着箱盖：↑ 拉开 / ↓ 合上，松开 E 放手" : "HOLDING LID: UP opens / DOWN closes. Let go of E to release.";
@@ -386,10 +404,10 @@ namespace Sleight.RabbitTrick
             {
                 if (Rules.RabbitInside) return chinese ? "兔子已经在里面了：趁暗抓住箱盖，向下拉到完全关闭" : "RABBIT INSIDE: pull the lid DOWN completely while it is dark.";
                 if (Hands.Selected.holding == HandItem.Rabbit)
-                    return chinese ? "保持兔子在暗处，或藏在移动小人的裙摆后；到箱口松开 E 放入。按住 E 时按 F 切手，可以交接" : "Carry it in the DARK or behind the moving cape. Let go of E at the box. Hold E and press F to pass it.";
-                return chinese ? "向上拉小人的侧面拉环吸引目光；也能移动小人，让兔子躲在裙摆后通过灯光" : "Wind the decoy. Its moving cape can cover a rabbit passing through the spotlight.";
+                    return chinese ? "保持兔子在暗处或舞台后侧；到箱口松开 E 放入。按住 E 时按 F 切手，可以交接" : "Keep it in the DARK or at the BACK of the stage. Let go of E at the box. Hold E and press F to pass it.";
+                return chinese ? "等追光移开，或按 W 走到舞台后侧，再把兔子运到箱子边" : "Wait for the light to move away, or carry the rabbit along the BACK of the stage (W).";
             }
-            return chinese ? "把小人移开：箱口必须在灯下且无遮挡，拉开箱盖给观众看兔子" : "Move the decoy aside. Reveal only when the box is LIT and UNOBSTRUCTED.";
+            return chinese ? "等追光照到箱子，再拉开箱盖给观众看兔子" : "Wait for the light on the box, then open the lid to reveal the rabbit.";
         }
 
         // 掌声：几百下短促的噪声"啪"，随机分布在几秒里，开头密、结尾稀

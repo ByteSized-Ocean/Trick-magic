@@ -390,8 +390,11 @@ namespace Sleight.RabbitTrick
         public void SetLevel(int level)
         {
             bool rabbitLevel = level == 0;
-            foreach (var t in new[] { box, rabbit, dancer, dancerBase, dancerHandle })
+            foreach (var t in new[] { box, rabbit })
                 if (t != null) t.gameObject.SetActive(rabbitLevel);
+            // 第 1 关的跳舞小人已经去掉（团队决定），三关都不显示
+            foreach (var t in new[] { dancer, dancerBase, dancerHandle })
+                if (t != null) t.gameObject.SetActive(false);
             var rest = world != null ? world.Find("RabbitRest") : null;
             if (rest != null) rest.gameObject.SetActive(rabbitLevel);
             GloveAlpha[0] = GloveAlpha[1] = 1f;
@@ -401,6 +404,7 @@ namespace Sleight.RabbitTrick
         {
             box.position = new Vector3(game.BoxX, BoxBase, 0);
             DrawMagician(game.Hands.BodyPosition);
+            DrawDepth(game);
             lid.localRotation = Quaternion.Euler(0, 0, game.LidAmount * 70f);
             emptyWindow.enabled = game.LidAmount > 0.4f;
             rabbit.position = game.RabbitPosition;
@@ -762,6 +766,28 @@ namespace Sleight.RabbitTrick
             return n + suffix;
         }
 
+        // 舞台后侧：魔术师画暗一些（追光只照前侧），后侧的兔子画在箱子后面
+        readonly System.Collections.Generic.Dictionary<SpriteRenderer, int> rabbitOrders = new System.Collections.Generic.Dictionary<SpriteRenderer, int>();
+        void DrawDepth(RabbitTrickGame game)
+        {
+            bool back = game.Hands.InBack;
+            var shade = back ? new Color(0.6f, 0.58f, 0.7f, 1f) : Color.white;
+            magician.GetComponent<SpriteRenderer>().color = shade;
+            for (int i = 0; i < 2; i++)
+            {
+                if (legs[i] == null) continue;
+                var c = (i == 0 ? Hex(0x1A2133) : Hex(0x222B42)) * shade;
+                c.a = 1f;
+                legs[i].startColor = legs[i].endColor = c;
+            }
+            if (rabbit == null) return;
+            foreach (var sr in rabbit.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                if (!rabbitOrders.TryGetValue(sr, out int order)) rabbitOrders[sr] = order = sr.sortingOrder;
+                sr.sortingOrder = game.RabbitBack && !game.Rules.RabbitInside ? order - 16 : order;
+            }
+        }
+
         static Vector2 Knee(Vector2 hip, Vector2 foot, float face)
         {
             Vector2 d = foot - hip;
@@ -829,8 +855,8 @@ namespace Sleight.RabbitTrick
                 DrawReplayButton(game);
             }
             if (game.InDemo) controls.text = "HOW TO PLAY THIS TRICK  /  PRESS ANY KEY TO SKIP";
-            else controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     按住 E  抓取（松开放下）     R  重试"
-                : "WASD  Walk     ARROWS  Move hand     F  Switch hand     Hold E  Grab (let go to drop)     R  Retry";
+            else controls.text = zh ? "A D  左右走     W / S  去舞台后侧 / 前侧     方向键  移动手     F  切换手     按住 E  抓取     R  重试"
+                : "A D  Walk     W / S  Back / front of stage     ARROWS  Hand     F  Switch hand     Hold E  Grab     R  Retry";
             // 被轰下台时先让东西飞一会儿，再弹结算面板，免得面板挡住魔术师
             resultPanel.SetActive((game.IsFailed || game.IsFinished) && !game.ChangingLevel && !game.InDemo && !(game.Booed && game.ResultAge < 3.5f));
             if (game.IsFailed)

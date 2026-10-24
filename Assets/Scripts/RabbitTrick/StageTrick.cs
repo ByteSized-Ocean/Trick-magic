@@ -69,6 +69,25 @@ namespace Sleight.RabbitTrick
         public abstract bool Anchor(TrickHand hand, out Vector2 position);
 
         protected bool Lit(Vector2 point, float radius = 0f) => game.Audience.Illuminates(point, radius);
+        protected bool InBack => game.Hands.InBack;
+
+        // 拿着的道具跟着手所在的那一层；松手时落到那一层的地面
+        protected void FollowLane(LooseProp p, float frontFloor)
+        {
+            if (p.Held) p.back = game.Hands.InBack;
+            p.floorY = frontFloor + (p.back ? DualHandController.LaneLift : 0f);
+        }
+
+        // 在后侧的道具整体往后画（排序往下压），会被前侧的柜子、桌子挡住
+        readonly System.Collections.Generic.Dictionary<SpriteRenderer, int> baseOrders = new System.Collections.Generic.Dictionary<SpriteRenderer, int>();
+        protected void SetBehind(Transform t, bool behind)
+        {
+            foreach (var sr in t.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                if (!baseOrders.TryGetValue(sr, out int order)) baseOrders[sr] = order = sr.sortingOrder;
+                sr.sortingOrder = behind ? order - 14 : order;
+            }
+        }
         protected static bool InWings(float x) => x < 0.95f || x > 9.05f;   // 两侧幕布后面，观众看不见
     }
 
@@ -81,6 +100,7 @@ namespace Sleight.RabbitTrick
         public float floorY;
         public int heldBy = -1;
         public bool inside;          // 在柜子里
+        public bool back;            // 在舞台后侧：观众看不见
         public Vector2 grip;         // 被抓时道具相对手的位置
 
         public bool Held => heldBy >= 0;
@@ -95,7 +115,7 @@ namespace Sleight.RabbitTrick
         }
 
         public bool Visible(RandomAudienceLight light) =>
-            light.Illuminates(Center, Mathf.Min(shape.width, shape.height) * 0.4f);
+            !back && light.Illuminates(Center, Mathf.Min(shape.width, shape.height) * 0.4f);
 
         public void Grab(int hand, Vector2 handPosition)
         {
