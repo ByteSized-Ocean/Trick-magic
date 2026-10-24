@@ -361,9 +361,9 @@ namespace Sleight.RabbitTrick
             distractionProgress = Panel("DanceTime", parent, new Vector2(-445, -278), new Vector2(420, 4), teal, true);
             distractionProgress.type = Image.Type.Filled;
             distractionProgress.fillMethod = Image.FillMethod.Horizontal;
-            hintLabel = Label("Hint", parent, new Vector2(130, -750), new Vector2(1340, 50), "", 23, cream);
+            hintLabel = Label("Hint", parent, new Vector2(130, -812), new Vector2(1340, 40), "", 23, cream);   // 压在台口下沿以下，不挡舞台
             hintLabel.alignment = TextAnchor.MiddleCenter;
-            controls = Label("Controls", parent, new Vector2(100, -824), new Vector2(1400, 40), "ARROWS / WASD  Move hand     F  Switch hand     E  Grab / release / pass     R  Restart", 19, new Color(0.8f, 0.76f, 0.85f));
+            controls = Label("Controls", parent, new Vector2(100, -857), new Vector2(1400, 36), "ARROWS / WASD  Move hand     F  Switch hand     E  Grab / release / pass     R  Restart", 19, new Color(0.8f, 0.76f, 0.85f));
             controls.alignment = TextAnchor.MiddleCenter;
             resultPanel = Panel("Result", parent, new Vector2(340, -300), new Vector2(920, 250), new Color(0.07f, 0.05f, 0.11f, 0.97f)).gameObject;
             resultTitle = Label("ResultTitle", resultPanel.transform, new Vector2(40, -30), new Vector2(840, 70), "", 38, cream);
