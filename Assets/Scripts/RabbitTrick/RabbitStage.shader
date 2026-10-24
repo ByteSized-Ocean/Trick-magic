@@ -32,6 +32,7 @@ Shader "Sleight/Rabbit Stage"
             CBUFFER_END
             float4 _RabbitSpot;
             float _RabbitSpotTopRadius;
+            float _RabbitSpotHidden;   // 大幕合拢时把追光遮住：0 = 正常，1 = 完全不亮
             struct Attributes { float3 positionOS:POSITION; float2 uv:TEXCOORD0; float4 color:COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS:SV_POSITION; float2 uv:TEXCOORD0; float4 color:COLOR; float3 world:TEXCOORD1; };
             Varyings vert(Attributes input)
@@ -69,6 +70,7 @@ Shader "Sleight/Rabbit Stage"
                 float radius = lerp(_RabbitSpot.w, _RabbitSpotTopRadius, height);
                 float light = 1.0 - smoothstep(radius - 0.07, radius, abs(input.world.x - _RabbitSpot.x));
                 light *= step(_RabbitSpot.y, input.world.y) * step(input.world.y, _RabbitSpot.z);
+                light *= 1.0 - saturate(_RabbitSpotHidden);
                 float3 illumination = lerp(float3(0.32,0.34,0.42), float3(1.38,1.22,0.94), light);
                 rgb *= lerp(illumination, float3(1,1,1), _Unlit);
                 return half4(rgb, tex.a * input.color.a);

@@ -13,9 +13,11 @@ namespace Sleight.RabbitTrick
         public StageCurtains Curtains;
         public float curtainDelay = 2.2f;   // 成功后先让观众看清，再落幕
         public float closedHold = 1.0f;     // 幕合拢后停多久再拉开
-        public const int LevelCount = 1;    // 目前只有一关；以后加关只改这里和 LoadLevel
+        public const int LevelCount = 1;    // 目前只有一关；以后加关只改这里、LoadLevel 和 TrickNames
+        public static readonly string[] TrickNames = { "THE RABBIT FROM AN EMPTY BOX" };
+        public string TrickName => TrickNames[Mathf.Clamp(Level, 0, TrickNames.Length - 1)];
         public int Level { get; private set; }
-        public float patienceSeconds = 90f;   // 观众的耐心：这么久还没变出兔子，就开始扔东西
+        public float patienceSeconds = 50f;   // 观众的耐心：这么久还没变出兔子，就开始扔东西
         public float Patience { get; private set; } = 1f;   // 1 = 满，0 = 耗尽
         public bool Booed { get; private set; }             // 耐心耗尽导致的失败（台下扔鸡蛋、白菜）
         public bool ChangingLevel { get; private set; }

@@ -35,6 +35,10 @@ namespace Sleight.RabbitTrick
         [SerializeField] Text handLabel, hintLabel, gazeLabel, endingLabel;
         [SerializeField] Image showProgress, distractionProgress, flash;
         [SerializeField] Image patienceFill, patienceBack;
+        [SerializeField] Text stepsTitle;
+        [SerializeField] LineRenderer beamLine;
+        static readonly Color BeamColor = new Color(1f, 0.81f, 0.4f, 0.09f);
+        static readonly Color PoolColor = new Color(1f, 0.8f, 0.4f, 0.16f);
         [SerializeField] Text patienceLabel;
         readonly System.Collections.Generic.List<Thrown> thrown = new System.Collections.Generic.List<Thrown>();
         float throwTimer;
@@ -151,14 +155,14 @@ namespace Sleight.RabbitTrick
             dancerHandle = Disc("WindUpHandle", world, new Vector2(8.97f, 2.45f), new Vector2(0.19f, 0.19f), gold, 31).transform;
 
             beam = Group("VisibleSpotlight", world, Vector2.zero);
-            var beamLine = Line("Cone", beam, 1f, new Color(1f, 0.81f, 0.4f, 0.09f), 3, 2);
+            beamLine = Line("Cone", beam, 1f, BeamColor, 3, 2);
             beamLine.sharedMaterial = lineOverlayMaterial;
             beamLine.numCapVertices = 0;
             beamLine.startWidth = 0.48f;
             beamLine.endWidth = 2.9f;
             beamLine.SetPosition(0, new Vector3(0, 5.8f, 0));
             beamLine.SetPosition(1, new Vector3(0, 0.85f, 0));
-            pool = Disc("LightPool", world, new Vector2(5.85f, 1.05f), new Vector2(2.95f, 0.4f), new Color(1f, 0.8f, 0.4f, 0.16f), 2, true);
+            pool = Disc("LightPool", world, new Vector2(5.85f, 1.05f), new Vector2(2.95f, 0.4f), PoolColor, 2, true);
             BuildAudience();
             BuildCurtains();
             BuildHud();
@@ -341,9 +345,9 @@ namespace Sleight.RabbitTrick
             scaler.matchWidthOrHeight = 0.5f;
             var parent = ui.transform;
             Label("Title", parent, new Vector2(35, -24), new Vector2(470, 40), "SLEIGHT  /  THE RABBIT", 25, cream);
-            handLabel = Label("ActiveHand", parent, new Vector2(35, -112), new Vector2(600, 34), "LEFT HAND", 21, teal);
+            handLabel = Label("ActiveHand", parent, new Vector2(35, -64), new Vector2(1000, 34), "LEFT HAND", 21, teal);
             var panel = Panel("Steps", parent, new Vector2(-445, -22), new Vector2(420, 210), new Color(0.07f, 0.055f, 0.11f, 0.93f), true);
-            Label("StepsTitle", panel.transform, new Vector2(20, -13), new Vector2(375, 30), "THE TRICK / FIRST ACT", 18, gold);
+            stepsTitle = Label("StepsTitle", panel.transform, new Vector2(20, -13), new Vector2(395, 30), "1st TRICK: THE RABBIT FROM AN EMPTY BOX", 17, gold);
             string[] names = { "01  SHOW THE EMPTY BOX", "02  HIDE THE RABBIT", "03  REVEAL THE RABBIT" };
             for (int i = 0; i < 3; i++)
             {
@@ -393,6 +397,16 @@ namespace Sleight.RabbitTrick
             }
             else rabbit.localScale = Vector3.one;
             beam.position = new Vector3(game.Audience.X, 0, 0);
+            // 大幕合拢时追光被挡住：光柱、地上的光圈和舞台上的打光一起随幕布合拢淡掉
+            float hidden = curtains != null ? curtains.Closedness : 0f;
+            Shader.SetGlobalFloat("_RabbitSpotHidden", hidden);
+            if (beamLine != null)
+            {
+                var bc = BeamColor; bc.a *= 1f - hidden;
+                beamLine.startColor = beamLine.endColor = bc;
+            }
+            var pc = PoolColor; pc.a *= 1f - hidden;
+            pool.color = pc;
             pool.transform.position = new Vector3(game.Audience.X, 1.05f, 0);
             for (int i = 0; i < 2; i++)
             {
@@ -617,6 +631,13 @@ namespace Sleight.RabbitTrick
             }
         }
 
+        static string Ordinal(int n)
+        {
+            int mod100 = n % 100;
+            string suffix = mod100 >= 11 && mod100 <= 13 ? "th" : (n % 10) switch { 1 => "st", 2 => "nd", 3 => "rd", _ => "th" };
+            return n + suffix;
+        }
+
         static Vector2 Knee(Vector2 hip, Vector2 foot, float face)
         {
             Vector2 d = foot - hip;
@@ -658,6 +679,7 @@ namespace Sleight.RabbitTrick
                 stepBars[i].color = i <= step ? teal : new Color(0.25f, 0.22f, 0.3f);
             }
             showProgress.fillAmount = game.Rules.EmptyShowProgress;
+            if (stepsTitle != null) stepsTitle.text = Ordinal(game.Level + 1) + " TRICK: " + game.TrickName;
             handLabel.text = zh ? (game.Hands.Active == 0 ? "正在控制：左手" : "正在控制：右手") + "    F 切换    按住 E 抓取 / 松开 E 放下"
                 : (game.Hands.Active == 0 ? "CONTROLLING: LEFT HAND" : "CONTROLLING: RIGHT HAND") + "    F  SWITCH    HOLD E  GRAB / LET GO  DROP";
             gazeLabel.text = game.Audience.Dancing

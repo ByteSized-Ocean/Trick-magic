@@ -23,6 +23,7 @@ namespace Sleight.RabbitTrick
         float[] folds = new float[0], foldVel = new float[0];
 
         public bool Closing => target > 0.5f;
+        public float Closedness => Mathf.Clamp01(edge);   // 0 = 全开，1 = 合拢
         public bool Settled => Mathf.Abs(edge - target) < 0.012f && Mathf.Abs(edgeVel) < 0.05f && FoldsSettled();
 
         public void Close() => target = 1f;
