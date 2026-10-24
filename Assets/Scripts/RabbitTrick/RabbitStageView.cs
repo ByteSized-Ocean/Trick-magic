@@ -34,6 +34,11 @@ namespace Sleight.RabbitTrick
         [SerializeField] Image[] stepBars = new Image[3];
         [SerializeField] Text handLabel, hintLabel, gazeLabel, endingLabel;
         [SerializeField] Image showProgress, distractionProgress, flash;
+        [SerializeField] Image patienceFill, patienceBack;
+        [SerializeField] Text patienceLabel;
+        readonly System.Collections.Generic.List<Thrown> thrown = new System.Collections.Generic.List<Thrown>();
+        float throwTimer;
+        System.Random throwRng = new System.Random(3);
         [SerializeField] GameObject resultPanel;
         [SerializeField] Text resultTitle, resultBody;
         [SerializeField] Text controls;
@@ -362,6 +367,13 @@ namespace Sleight.RabbitTrick
             resultBody = Label("ResultBody", resultPanel.transform, new Vector2(40, -118), new Vector2(840, 100), "", 23, cream);
             resultBody.alignment = TextAnchor.MiddleCenter;
             resultPanel.SetActive(false);
+            // 观众耐心：画面最左侧一根竖条，从下往上填，随时间往下掉。
+            patienceBack = Panel("PatienceBack", parent, new Vector2(10, -190), new Vector2(18, 500), new Color(0.07f, 0.055f, 0.11f, 0.9f));
+            patienceFill = Panel("PatienceFill", patienceBack.transform, new Vector2(3, -3), new Vector2(12, 494), teal);
+            patienceFill.type = Image.Type.Filled;
+            patienceFill.fillMethod = Image.FillMethod.Vertical;
+            patienceFill.fillOrigin = (int)Image.OriginVertical.Bottom;
+            patienceLabel = Label("PatienceLabel", parent, new Vector2(4, -160), new Vector2(120, 26), "PATIENCE", 15, gold);
             flash = Panel("CaughtFlash", parent, Vector2.zero, new Vector2(1600, 900), new Color(1, 0.7f, 0.6f, 0));
             endingLabel = resultTitle;
         }
@@ -497,6 +509,114 @@ namespace Sleight.RabbitTrick
             t.localScale = new Vector3(size.x / Mathf.Max(0.01f, art.bounds.size.x), size.y / Mathf.Max(0.01f, art.bounds.size.y), 1);
         }
 
+        // 耐心条：绿 → 黄 → 红，剩下不到四分之一时闪动、轻微抖。
+        void DrawPatience(RabbitTrickGame game)
+        {
+            if (patienceFill == null) return;
+            float p = game.Patience;
+            patienceFill.fillAmount = p;
+            Color green = teal, yellow = new Color32(232, 190, 80, 255), red = new Color32(214, 76, 70, 255);
+            Color col = p > 0.5f ? Color.Lerp(yellow, green, (p - 0.5f) * 2f) : Color.Lerp(red, yellow, p * 2f);
+            if (p < 0.25f && !game.Rules.Failed) col = Color.Lerp(col, Color.white, 0.35f * (0.5f + 0.5f * Mathf.Sin(Time.time * 12f)));
+            patienceFill.color = col;
+            var rt = patienceBack.rectTransform;
+            float shake = p < 0.25f && !game.Rules.Failed && !game.Rules.Finished ? Mathf.Sin(Time.time * 40f) * 2f * (1f - p * 4f) : 0f;
+            rt.anchoredPosition = new Vector2(10 + shake, -190);
+        }
+
+        // 耐心耗尽：台下的观众朝魔术师扔鸡蛋和白菜。东西沿抛物线飞过去，鸡蛋砸中就碎成一摊，
+        // 白菜砸中后弹开、掉到地上滚一下。持续几秒，之后结算面板照常弹出。
+        sealed class Thrown
+        {
+            public Transform t; public SpriteRenderer main, detail;
+            public Vector2 from, to; public float age, flight, spin; public bool egg, landed;
+            public Vector2 vel;
+        }
+
+        void DrawThrown(RabbitTrickGame game)
+        {
+            float dt = Time.deltaTime;
+            if (!game.Booed)
+            {
+                if (thrown.Count > 0) { foreach (var item in thrown) if (item.t != null) Destroy(item.t.gameObject); thrown.Clear(); }
+                throwTimer = 0f;
+                return;
+            }
+            if (game.ResultAge < 3.5f)
+            {
+                throwTimer -= dt;
+                if (throwTimer <= 0f)
+                {
+                    throwTimer = 0.12f + (float)throwRng.NextDouble() * 0.18f;
+                    Throw(game);
+                }
+            }
+            foreach (var item in thrown)
+            {
+                item.age += dt;
+                if (!item.landed)
+                {
+                    float k = Mathf.Clamp01(item.age / item.flight);
+                    Vector2 p = Vector2.Lerp(item.from, item.to, k) + Vector2.up * Mathf.Sin(k * Mathf.PI) * 1.6f;
+                    item.t.position = new Vector3(p.x, p.y, -0.6f);
+                    item.t.localRotation = Quaternion.Euler(0, 0, item.spin * item.age);
+                    if (k >= 1f) Land(item);
+                }
+                else if (!item.egg)
+                {
+                    // 白菜弹开后受重力落到地板上
+                    item.vel += Vector2.down * 9.8f * dt;
+                    var p = (Vector2)item.t.position + item.vel * dt;
+                    if (p.y < 1.25f) { p.y = 1.25f; item.vel = new Vector2(item.vel.x * 0.6f, Mathf.Abs(item.vel.y) * 0.3f); }
+                    item.t.position = new Vector3(p.x, p.y, -0.6f);
+                    item.t.localRotation = Quaternion.Euler(0, 0, item.t.localEulerAngles.z - item.vel.x * 120f * dt);
+                }
+            }
+        }
+
+        void Throw(RabbitTrickGame game)
+        {
+            Vector2 body = game.Hands.BodyPosition;
+            float fromX = audienceHeadPivots.Length > 0 && audienceHeadPivots[throwRng.Next(audienceHeadPivots.Length)] != null
+                ? audienceHeadPivots[throwRng.Next(audienceHeadPivots.Length)].position.x : (float)throwRng.NextDouble() * 10f;
+            var item = new Thrown
+            {
+                egg = throwRng.Next(3) != 0,
+                from = new Vector2(fromX, 0.7f),
+                to = body + new Vector2(((float)throwRng.NextDouble() - 0.5f) * 0.7f, 0.6f + (float)throwRng.NextDouble() * 1.4f),
+                flight = 0.55f + (float)throwRng.NextDouble() * 0.3f,
+                spin = ((float)throwRng.NextDouble() - 0.5f) * 900f,
+            };
+            item.t = Group(item.egg ? "ThrownEgg" : "ThrownCabbage", world, item.from);
+            if (item.egg)
+            {
+                item.main = Disc("Egg", item.t, Vector2.zero, new Vector2(0.13f, 0.17f), Hex(0xF4EEDC), 60, true);
+            }
+            else
+            {
+                item.main = Disc("Cabbage", item.t, Vector2.zero, new Vector2(0.3f, 0.28f), Hex(0x6FA84A), 60, true);
+                item.detail = Disc("CabbageLeaf", item.t, new Vector2(0.03f, 0.02f), new Vector2(0.18f, 0.2f), Hex(0x9BCB6A), 61, true);
+            }
+            thrown.Add(item);
+        }
+
+        void Land(Thrown item)
+        {
+            item.landed = true;
+            if (item.egg)
+            {
+                // 砸碎：变成一摊蛋清加蛋黄，贴在打中的地方
+                item.t.localRotation = Quaternion.Euler(0, 0, (float)throwRng.NextDouble() * 360f);
+                SetSize(item.main.transform, new Vector2(0.32f, 0.2f));
+                item.main.color = new Color(0.97f, 0.95f, 0.88f, 0.92f);
+                Disc("Yolk", item.t, new Vector2(0.02f, 0f), new Vector2(0.1f, 0.09f), Hex(0xF2B83A), 61, true);
+            }
+            else
+            {
+                item.vel = new Vector2(((float)throwRng.NextDouble() - 0.5f) * 3f, 1.5f + (float)throwRng.NextDouble());
+            }
+        }
+
         static Vector2 Knee(Vector2 hip, Vector2 foot, float face)
         {
             Vector2 d = foot - hip;
@@ -549,10 +669,11 @@ namespace Sleight.RabbitTrick
             hintLabel.text = game.Hint(zh);
             controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     按住 E  抓取（松开放下）     R  重试"
                 : "WASD  Walk     ARROWS  Move hand     F  Switch hand     Hold E  Grab (let go to drop)     R  Retry";
-            resultPanel.SetActive((game.Rules.Failed || game.Rules.Finished) && !game.ChangingLevel);
+            // 被轰下台时先让东西飞一会儿，再弹结算面板，免得面板挡住魔术师
+            resultPanel.SetActive((game.Rules.Failed || game.Rules.Finished) && !game.ChangingLevel && !(game.Booed && game.ResultAge < 3.5f));
             if (game.Rules.Failed)
             {
-                resultTitle.text = zh ? "露馅了！" : "CAUGHT!";
+                resultTitle.text = zh ? "露馅了！" : game.Booed ? "BOOED OFF THE STAGE!" : "CAUGHT!";
                 resultBody.text = zh ? game.Rules.FailureReason + "\n按 R 重试这场魔术" : game.Rules.FailureReason + "\nPress R to try again.";
             }
             else if (game.Rules.Finished)
@@ -561,8 +682,10 @@ namespace Sleight.RabbitTrick
                 resultBody.text = zh ? "第一场魔术成功  ·  按 R 再演一次" : "FIRST TRICK COMPLETE  /  PRESS R TO REPLAY";
             }
             var c = flash.color;
-            c.a = game.Rules.Failed ? Mathf.Max(0, 0.45f - game.ResultAge) : 0;
+            c.a = game.Rules.Failed && !game.Booed ? Mathf.Max(0, 0.45f - game.ResultAge) : 0;
             flash.color = c;
+            DrawPatience(game);
+            DrawThrown(game);
         }
 
         Transform Group(string name, Transform parent, Vector2 position)

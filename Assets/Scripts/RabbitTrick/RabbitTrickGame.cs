@@ -15,6 +15,9 @@ namespace Sleight.RabbitTrick
         public float closedHold = 1.0f;     // 幕合拢后停多久再拉开
         public const int LevelCount = 1;    // 目前只有一关；以后加关只改这里和 LoadLevel
         public int Level { get; private set; }
+        public float patienceSeconds = 90f;   // 观众的耐心：这么久还没变出兔子，就开始扔东西
+        public float Patience { get; private set; } = 1f;   // 1 = 满，0 = 耗尽
+        public bool Booed { get; private set; }             // 耐心耗尽导致的失败（台下扔鸡蛋、白菜）
         public bool ChangingLevel { get; private set; }
         public RabbitTrickRules Rules { get; } = new RabbitTrickRules();
         public float BoxX { get; private set; }
@@ -59,6 +62,8 @@ namespace Sleight.RabbitTrick
             resultSoundPlayed = false;
             rabbitFalling = false;
             rabbitFallVel = lidFallVel = 0f;
+            Patience = 1f;
+            Booed = false;
             Hands.ResetHands();
             Audience.ResetLight(BoxX);
             if (view != null) view.Draw(this);
@@ -71,6 +76,8 @@ namespace Sleight.RabbitTrick
 #if UNITY_EDITOR
             // 调试：F9 直接走一遍落幕 → 拉开，不用先把魔术演完
             if (kb != null && kb.f9Key.wasPressedThisFrame && !ChangingLevel && Curtains != null) StartCoroutine(NextLevel());
+            // 调试：F8 把耐心降到只剩 3 秒
+            if (kb != null && kb.f8Key.wasPressedThisFrame) Patience = Mathf.Min(Patience, 3f / Mathf.Max(1f, patienceSeconds));
 #endif
             float dt = Mathf.Min(Time.deltaTime, 0.05f);
             if (ChangingLevel)
@@ -89,6 +96,7 @@ namespace Sleight.RabbitTrick
                 TickFalling(dt);
                 Audience.Tick(dt);
                 Evaluate(dt);
+                TickPatience(dt);
             }
             if ((Rules.Failed || Rules.Finished) && !resultSoundPlayed)
             {
@@ -157,6 +165,15 @@ namespace Sleight.RabbitTrick
             // 中途松手：兔子从手里受重力掉下去，落地轻轻弹一下（TickFalling）。
             rabbitFalling = RabbitPosition.y > RabbitFloorY + 0.001f;
             rabbitFallVel = 0f;
+        }
+
+        void TickPatience(float dt)
+        {
+            if (Rules.Failed || Rules.Finished) return;
+            Patience = Mathf.Max(0f, Patience - dt / Mathf.Max(1f, patienceSeconds));
+            if (Patience > 0f) return;
+            Booed = true;
+            Rules.Expose("The audience ran out of patience and started throwing things.");
         }
 
         // 松手后的物体：兔子掉到地上；半开的箱盖没人扶着，会绕铰链落下合上（全开时靠在限位上不动）。
