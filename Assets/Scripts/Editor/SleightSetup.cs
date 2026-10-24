@@ -13,13 +13,14 @@ namespace Sleight.EditorTools
     {
         const string ScenePath = "Assets/Scenes/Game.unity";
         const string PlaceholderPath = "Assets/Art/Placeholder/Placeholder.asset";
+        const string CirclePath = "Assets/Art/Placeholder/Circle.asset";
         const string PropPrefabPath = "Assets/Prefabs/P_Prop.prefab";
         const string PipelinePath = "Assets/Settings/UniversalRP_3D.asset";
         const string RendererPath = "Assets/Settings/UniversalRenderer_3D.asset";
         const string MaterialDir = "Assets/Art/Materials";
         const string UnlitMaterialPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/Sprite-Unlit-Default.mat";
 
-        static readonly string[] SortingLayers = { "BG", "Stage", "Props", "Player", "Light", "HUD" };
+        static readonly string[] SortingLayers = { "BG", "Stage", "Props", "Player", "Light", "HUD", "Audience" };
 
         // GDD §5.1 调色板
         static readonly Color Silhouette = Hex(0x0B0B0C);
@@ -28,11 +29,12 @@ namespace Sleight.EditorTools
         static readonly Color FootLine = Hex(0x7C7C84);
         static readonly Color Divider = Hex(0x3A3A40);
         static readonly Color SpotYellow = Hex(0xFFD21E);
-        static readonly Color Ambient = Hex(0xD8D8E0);
+        static readonly Color Ambient = Hex(0x5C5C66);   // 暗区要暗，追光才显眼
         static readonly Color ClearColor = Hex(0x101012);
 
         static Sprite centerSprite;
         static Sprite bottomSprite;
+        static Sprite circleSprite;
         static Material unlit;
         static Material shadowCaster;
 
@@ -54,6 +56,7 @@ namespace Sleight.EditorTools
             ApplyProjectSettings();
             EnsureSortingLayers();
             EnsurePlaceholderSprites();
+            EnsureCircleSprite();
             unlit = AssetDatabase.LoadAssetAtPath<Material>(UnlitMaterialPath);
             shadowCaster = LitMaterial("M_ShadowCaster", Silhouette);
             var propPrefab = EnsurePropPrefab();
@@ -255,14 +258,14 @@ namespace Sleight.EditorTools
             var spotGo = new GameObject("Light_Main");
             spotGo.transform.SetParent(lights, false);
             spotGo.transform.position = new Vector3(2.5f, 6.5f, -3f);
-            spotGo.transform.LookAt(new Vector3(2.5f, 1f, 1.2f));
+            spotGo.transform.LookAt(new Vector3(2.5f, 2.6f, 4.0f));   // 打在角色身后的天幕上，剪影和影子都更清楚
             var beam = spotGo.AddComponent<Light>();
             beam.type = LightType.Spot;
             beam.color = SpotYellow;
-            beam.intensity = 40f;
-            beam.range = 15f;
-            beam.spotAngle = 36f;
-            beam.innerSpotAngle = 33f;
+            beam.intensity = 160f;
+            beam.range = 25f;
+            beam.spotAngle = 34f;
+            beam.innerSpotAngle = 31f;
             beam.shadows = LightShadows.Hard;
             var spotlight = spotGo.AddComponent<Spotlight>();
 
@@ -276,6 +279,8 @@ namespace Sleight.EditorTools
             playerGo.AddComponent<FrameAnim>();
             var player = playerGo.AddComponent<PlayerController>();
             player.spotlight = spotlight;
+
+            BuildAudience();
 
             var hud = BuildHud();
 
@@ -293,6 +298,62 @@ namespace Sleight.EditorTools
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        }
+
+        // 台前观众：一排黑色剪影的后脑勺和肩膀，压在画面底边，比舞台离相机更近。
+        static void BuildAudience()
+        {
+            var root = new GameObject("Audience").transform;
+            var rng = new System.Random(7);
+            float x = 0.2f;
+            int i = 0;
+            while (x < 10.4f)
+            {
+                float jitter = (float)rng.NextDouble();
+                float headR = 0.21f + 0.06f * jitter;
+                float top = 0.85f + 0.2f * (float)rng.NextDouble();
+                var person = new GameObject($"Seat{++i}").transform;
+                person.SetParent(root, false);
+                person.position = new Vector3(x, 0f, -2f);
+
+                var shoulders = new GameObject("Shoulders");
+                shoulders.transform.SetParent(person, false);
+                shoulders.transform.localPosition = new Vector3(0f, -0.4f, 0f);
+                shoulders.transform.localScale = new Vector3(0.85f + 0.2f * jitter, top - 2f * headR + 0.45f, 1f);
+                AddSprite(shoulders, bottomSprite, Silhouette, "Audience", 0);
+
+                var head = new GameObject("Head");
+                head.transform.SetParent(person, false);
+                head.transform.localPosition = new Vector3(0.03f * (jitter - 0.5f), top - headR, 0f);
+                head.transform.localScale = new Vector3(2f * headR, 2f * headR * 1.1f, 1f);
+                AddSprite(head, circleSprite, Silhouette, "Audience", 1);
+
+                x += 0.95f + 0.35f * (float)rng.NextDouble();
+            }
+        }
+
+        static void EnsureCircleSprite()
+        {
+            foreach (var o in AssetDatabase.LoadAllAssetsAtPath(CirclePath))
+                if (o is Sprite s) { circleSprite = s; return; }
+
+            const int n = 64;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { name = "Circle", filterMode = FilterMode.Bilinear };
+            var pixels = new Color[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = x + 0.5f - n / 2f, dy = y + 0.5f - n / 2f;
+                    float a = Mathf.Clamp01(n / 2f - Mathf.Sqrt(dx * dx + dy * dy));
+                    pixels[y * n + x] = new Color(1, 1, 1, a);
+                }
+            tex.SetPixels(pixels);
+            tex.Apply();
+            AssetDatabase.CreateAsset(tex, CirclePath);
+            circleSprite = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n);
+            circleSprite.name = "circle";
+            AssetDatabase.AddObjectToAsset(circleSprite, tex);
+            AssetDatabase.SaveAssets();
         }
 
         static HudAudio BuildHud()
