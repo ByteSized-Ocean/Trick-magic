@@ -8,6 +8,7 @@ namespace Sleight.RabbitTrick
     public sealed class DualHandController : MonoBehaviour
     {
         public float speed = 2.2f, walkSpeed = 2.2f, grabRadius = 0.34f;
+        public float rabbitGrabRadius = 0.6f;   // 兔子玩偶比把手大，抓取范围放宽
         public float upperArm = 0.53f, forearm = 0.53f;
         public float Reach => upperArm + forearm - 0.01f;
         public int Active { get; private set; }
@@ -42,7 +43,9 @@ namespace Sleight.RabbitTrick
             var hand = new Vector2((kb.rightArrowKey.isPressed ? 1 : 0) - (kb.leftArrowKey.isPressed ? 1 : 0), (kb.upArrowKey.isPressed ? 1 : 0) - (kb.downArrowKey.isPressed ? 1 : 0));
             MoveBody(game, walk.normalized * walkSpeed * dt);
             Move(game, hand.normalized * speed * dt);
-            if (kb.eKey.wasPressedThisFrame) Interact(game);
+            // 按住 E 抓，松开 E 放。按住期间按 F 切手，原来那只手会一直抓着（交接就靠这个）。
+            if (kb.eKey.wasPressedThisFrame) Grab(game);
+            if (kb.eKey.wasReleasedThisFrame) Release(game);
             game.Audience.DancerDragging = Hands[0].holding == HandItem.Dancer || Hands[1].holding == HandItem.Dancer;
         }
         public void MoveBody(RabbitTrickGame game, Vector2 delta)
@@ -111,25 +114,41 @@ namespace Sleight.RabbitTrick
         }
         bool InReach(int index, Vector2 position) => Vector2.Distance(Shoulder(index), position) <= Reach;
         void UpdateRabbit(RabbitTrickGame game) { foreach (var hand in Hands) if (hand.holding == HandItem.Rabbit) game.RabbitPosition = hand.position + Vector2.down * 0.12f; }
+        // 按一下切换抓 / 放（编辑器里的自动验证用）；玩家实际操作走 Grab / Release。
         public void Interact(RabbitTrickGame game)
+        {
+            if (Selected.holding != HandItem.None) Release(game);
+            else Grab(game);
+        }
+
+        public void Release(RabbitTrickGame game)
         {
             var hand = Selected;
             if (hand.holding == HandItem.Rabbit)
             {
-                if (Vector2.Distance(game.RabbitPosition, game.BoxOpening) < 0.5f) { if (game.TryPutRabbit()) hand.holding = HandItem.None; }
-                else { hand.holding = HandItem.None; game.DropRabbit(); }
+                bool atBox = Vector2.Distance(game.RabbitPosition, game.BoxOpening) < 0.5f;
+                if (atBox && game.TryPutRabbit()) { hand.holding = HandItem.None; return; }
+                // 松开 E 就一定松手：没放进箱子就掉回地上
+                hand.holding = HandItem.None;
+                game.DropRabbit();
                 return;
             }
-            if (hand.holding != HandItem.None) { hand.holding = HandItem.None; return; }
-            if (Other.holding == HandItem.Rabbit && Vector2.Distance(hand.position, game.RabbitPosition) <= grabRadius + 0.1f)
+            hand.holding = HandItem.None;
+        }
+
+        public void Grab(RabbitTrickGame game)
+        {
+            var hand = Selected;
+            if (hand.holding != HandItem.None) return;
+            if (Other.holding == HandItem.Rabbit && Vector2.Distance(hand.position, game.RabbitPosition) <= rabbitGrabRadius + 0.1f)
             {
                 Other.holding = HandItem.None; hand.holding = HandItem.Rabbit; UpdateRabbit(game);
-                game.Notify("兔子已交到" + (Active == 0 ? "左手" : "右手")); return;
+                game.Notify("兔子已交到" + (Active == 0 ? "左手" : "右手") + "，按住 E 别松"); return;
             }
-            HandItem nearest = HandItem.None; float distance = grabRadius;
+            HandItem nearest = HandItem.None; float distance = float.MaxValue;
             Check(HandItem.Lid, game.LidHandle, ref nearest, ref distance);
             Check(HandItem.Box, game.BoxHandle, ref nearest, ref distance);
-            if (!game.Rules.RabbitInside && Other.holding != HandItem.Rabbit) Check(HandItem.Rabbit, game.RabbitPosition, ref nearest, ref distance);
+            if (!game.Rules.RabbitInside && Other.holding != HandItem.Rabbit) Check(HandItem.Rabbit, game.RabbitPosition, ref nearest, ref distance, rabbitGrabRadius);
             Check(HandItem.Dancer, game.DancerHandle, ref nearest, ref distance);
             if (nearest != HandItem.None && Other.holding == nearest) nearest = HandItem.None;
             hand.holding = nearest;
@@ -137,12 +156,13 @@ namespace Sleight.RabbitTrick
             else if (nearest == HandItem.Lid) hand.position = game.LidHandle;
             else if (nearest == HandItem.Box) hand.position = game.BoxHandle;
             else if (nearest == HandItem.Dancer) hand.position = game.DancerHandle;
-            else game.Notify("WASD 走近道具，方向键把手移到把手上，再按 E 抓取");
+            else game.Notify("WASD 走近道具，方向键把手移到把手上，按住 E 抓取");
         }
-        void Check(HandItem item, Vector2 point, ref HandItem nearest, ref float distance)
+        void Check(HandItem item, Vector2 point, ref HandItem nearest, ref float distance) => Check(item, point, ref nearest, ref distance, grabRadius);
+        void Check(HandItem item, Vector2 point, ref HandItem nearest, ref float distance, float radius)
         {
             float candidate = Vector2.Distance(Selected.position, point);
-            if (candidate < distance && InReach(Active, point)) { distance = candidate; nearest = item; }
+            if (candidate <= radius && candidate < distance && InReach(Active, point)) { distance = candidate; nearest = item; }
         }
         public void SelectHand(int index) => Active = Mathf.Clamp(index, 0, 1);
     }

@@ -41,6 +41,9 @@ namespace Sleight.RabbitTrick
         [SerializeField] Transform[] shoes = new Transform[2];
         [SerializeField] Transform[] audienceHeadPivots = new Transform[0];
         [SerializeField] float[] audienceFollow = new float[0];
+        [SerializeField] Transform[] gloveFingers = new Transform[8];   // 每只手 4 根
+        [SerializeField] Transform[] gloveThumbs = new Transform[2];
+        float[] grip = new float[2];   // 0 = 张开，1 = 握拳
         [SerializeField] Transform[] torchFlames = new Transform[0];
         [SerializeField] Transform[] torchCores = new Transform[0];
         [SerializeField] SpriteRenderer[] torchGlows = new SpriteRenderer[0];
@@ -94,8 +97,9 @@ namespace Sleight.RabbitTrick
                 handRings[i] = Disc("SelectedHand", gloves[i], Vector2.zero, new Vector2(0.53f, 0.53f), new Color(0.25f, 0.9f, 0.78f, 0.3f), 30, true);
                 Disc("Glove", gloves[i], Vector2.zero, new Vector2(0.29f, 0.32f), cream, 32);
                 for (int finger = 0; finger < 4; finger++)
-                    Disc("Finger", gloves[i], new Vector2(-0.105f + finger * 0.069f, 0.135f), new Vector2(0.075f, 0.18f), cream, 32);
-                Disc("Thumb", gloves[i], new Vector2(i == 0 ? 0.16f : -0.16f, -0.015f), new Vector2(0.14f, 0.09f), cream, 32);
+                    gloveFingers[i * 4 + finger] = Disc("Finger", gloves[i], new Vector2(-0.105f + finger * 0.069f, 0.135f), new Vector2(0.075f, 0.18f), cream, 32).transform;
+                gloveThumbs[i] = Disc("Thumb", gloves[i], new Vector2(i == 0 ? 0.16f : -0.16f, -0.015f), new Vector2(0.14f, 0.09f), cream, 32).transform;
+                Rect("Knuckles", gloves[i], new Vector2(0, 0.075f), new Vector2(0.24f, 0.018f), new Color(0.62f, 0.52f, 0.42f, 0f), 35);
                 Rect("Cuff", gloves[i], new Vector2(0, -0.17f), new Vector2(0.27f, 0.07f), teal, 33);
             }
 
@@ -381,6 +385,7 @@ namespace Sleight.RabbitTrick
             {
                 Vector2 hand = game.Hands.Hands[i].position;
                 gloves[i].position = hand;
+                DrawGrip(i, game.Hands.Hands[i].holding != HandItem.None);
                 handRings[i].enabled = i == game.Hands.Active;
                 float pulse = 1f + 0.06f * Mathf.Sin(Time.time * 6);
                 handRings[i].transform.localScale = new Vector3(0.53f / circle.bounds.size.x, 0.53f / circle.bounds.size.y, 1) * pulse;
@@ -450,6 +455,47 @@ namespace Sleight.RabbitTrick
             }
         }
 
+        // 抓着东西时握拳：四根手指缩短、往掌心收，大拇指压到指头前面，指节露出一道暗线；
+        // 空手时张开、手指略微散开。两种形态之间快速插值，按住 / 松开 E 时看得到手在动。
+        void DrawGrip(int i, bool holding)
+        {
+            if (grip == null || grip.Length != 2) grip = new float[2];
+            grip[i] = Mathf.MoveTowards(grip[i], holding ? 1f : 0f, Time.deltaTime * 9f);
+            float g = Mathf.SmoothStep(0f, 1f, grip[i]);
+            float side = i == 0 ? 1f : -1f;
+            for (int f = 0; f < 4; f++)
+            {
+                var finger = gloveFingers[i * 4 + f];
+                if (finger == null) continue;
+                float baseX = -0.105f + f * 0.069f;
+                float spread = (f - 1.5f) * 0.014f * (1f - g);
+                finger.localPosition = new Vector3(Mathf.Lerp(baseX + spread, baseX * 0.85f, g), Mathf.Lerp(0.135f, 0.05f, g), 0);
+                SetSize(finger, new Vector2(0.075f, Mathf.Lerp(0.18f, 0.085f, g)));
+                finger.localRotation = Quaternion.Euler(0, 0, (f - 1.5f) * Mathf.Lerp(-7f, 3f, g));
+            }
+            var thumb = gloveThumbs[i];
+            if (thumb != null)
+            {
+                thumb.localPosition = new Vector3(side * Mathf.Lerp(0.16f, 0.05f, g), Mathf.Lerp(-0.015f, 0.025f, g), 0);
+                thumb.localRotation = Quaternion.Euler(0, 0, side * Mathf.Lerp(0f, 35f, g));
+                thumb.GetComponent<SpriteRenderer>().sortingOrder = g > 0.5f ? 34 : 32;   // 握拳时大拇指压在指头前面
+            }
+            var knuckles = gloves[i].Find("Knuckles");
+            if (knuckles != null)
+            {
+                var sr = knuckles.GetComponent<SpriteRenderer>();
+                var c = sr.color;
+                c.a = g * 0.9f;
+                sr.color = c;
+            }
+        }
+
+        void SetSize(Transform t, Vector2 size)
+        {
+            var art = t.GetComponent<SpriteRenderer>().sprite;
+            t.localScale = new Vector3(size.x / Mathf.Max(0.01f, art.bounds.size.x), size.y / Mathf.Max(0.01f, art.bounds.size.y), 1);
+        }
+
         static Vector2 Knee(Vector2 hip, Vector2 foot, float face)
         {
             Vector2 d = foot - hip;
@@ -491,8 +537,8 @@ namespace Sleight.RabbitTrick
                 stepBars[i].color = i <= step ? teal : new Color(0.25f, 0.22f, 0.3f);
             }
             showProgress.fillAmount = game.Rules.EmptyShowProgress;
-            handLabel.text = zh ? (game.Hands.Active == 0 ? "正在控制：左手" : "正在控制：右手") + "    F 切换    E 抓取 / 松开"
-                : (game.Hands.Active == 0 ? "LEFT HAND" : "RIGHT HAND") + "    F SWITCH    E GRAB / RELEASE";
+            handLabel.text = zh ? (game.Hands.Active == 0 ? "正在控制：左手" : "正在控制：右手") + "    F 切换    按住 E 抓取 / 松开 E 放下"
+                : (game.Hands.Active == 0 ? "LEFT HAND" : "RIGHT HAND") + "    F SWITCH    HOLD E TO GRAB";
             gazeLabel.text = game.Audience.Dancing
                 ? (zh ? "跳舞小人吸引中  " : "DISTRACTED  ") + Mathf.CeilToInt(game.Audience.DanceRemaining) + "s"
                 : (zh ? (game.Audience.Moving ? "观众正在转移目光" : "观众正看着亮处") : "WATCH THE MOVING LIGHT");
@@ -500,8 +546,8 @@ namespace Sleight.RabbitTrick
             if (game.Audience.Dancing && game.Audience.CoversRabbit(game.RabbitPosition) && game.Audience.Illuminates(game.RabbitPosition))
                 gazeLabel.text += zh ? "  ·  兔子被遮住了" : "  / RABBIT COVERED";
             hintLabel.text = game.Hint(zh);
-            controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     E  抓取 / 松开 / 交接     R  重试"
-                : "WASD Walk     ARROWS Hand     F Switch     E Grab / release / pass     R Retry";
+            controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     按住 E  抓取（松开放下）     R  重试"
+                : "WASD Walk     ARROWS Hand     F Switch     Hold E Grab (let go to drop)     R Retry";
             resultPanel.SetActive((game.Rules.Failed || game.Rules.Finished) && !game.ChangingLevel);
             if (game.Rules.Failed)
             {
