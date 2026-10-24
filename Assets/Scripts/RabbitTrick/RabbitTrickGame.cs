@@ -31,6 +31,9 @@ namespace Sleight.RabbitTrick
                 2.11f + 0.78f * Mathf.Sin(angle) + 0.06f * Mathf.Cos(angle));
         }
         public Vector2 DancerHandle => new Vector2(Audience.DancerX + 0.72f, 2.45f);
+        float rabbitFallVel, lidFallVel;
+        bool rabbitFalling;
+        const float Gravity = 9.8f, RabbitFloorY = 1.5f;
         string notification;
         float notificationUntil;
         bool resultSoundPlayed;
@@ -54,6 +57,8 @@ namespace Sleight.RabbitTrick
             notification = "";
             notificationUntil = 0;
             resultSoundPlayed = false;
+            rabbitFalling = false;
+            rabbitFallVel = lidFallVel = 0f;
             Hands.ResetHands();
             Audience.ResetLight(BoxX);
             if (view != null) view.Draw(this);
@@ -81,6 +86,7 @@ namespace Sleight.RabbitTrick
             else
             {
                 Hands.Tick(this, dt);
+                TickFalling(dt);
                 Audience.Tick(dt);
                 Evaluate(dt);
             }
@@ -148,7 +154,42 @@ namespace Sleight.RabbitTrick
         {
             // Releasing in the light must be checked before the rabbit returns to the floor.
             Rules.CheckExposure(Audience.RabbitVisibleInLight(RabbitPosition), false);
-            RabbitPosition = new Vector2(RabbitPosition.x, 1.5f);
+            // 中途松手：兔子从手里受重力掉下去，落地轻轻弹一下（TickFalling）。
+            rabbitFalling = RabbitPosition.y > RabbitFloorY + 0.001f;
+            rabbitFallVel = 0f;
+        }
+
+        // 松手后的物体：兔子掉到地上；半开的箱盖没人扶着，会绕铰链落下合上（全开时靠在限位上不动）。
+        void TickFalling(float dt)
+        {
+            bool rabbitHeld = Hands.Hands[0].holding == HandItem.Rabbit || Hands.Hands[1].holding == HandItem.Rabbit;
+            if (rabbitHeld || Rules.RabbitInside) rabbitFalling = false;
+            if (rabbitFalling)
+            {
+                rabbitFallVel -= Gravity * dt;
+                var p = RabbitPosition + Vector2.up * rabbitFallVel * dt;
+                if (p.y <= RabbitFloorY)
+                {
+                    p.y = RabbitFloorY;
+                    if (rabbitFallVel < -1.2f) rabbitFallVel = -rabbitFallVel * 0.28f;   // 落地弹一下
+                    else { rabbitFallVel = 0f; rabbitFalling = false; }
+                }
+                RabbitPosition = p;
+            }
+
+            bool lidHeld = Hands.Hands[0].holding == HandItem.Lid || Hands.Hands[1].holding == HandItem.Lid;
+            if (!lidHeld && LidAmount > 0f && LidAmount < 0.92f)
+            {
+                lidFallVel += Gravity * 0.9f * dt;
+                float amount = LidAmount - lidFallVel * dt;
+                if (amount <= 0f)
+                {
+                    amount = 0f;
+                    lidFallVel = lidFallVel > 1.5f ? -lidFallVel * 0.2f : 0f;   // 盖上时轻轻弹起一点
+                }
+                SetLid(amount);
+            }
+            else if (lidHeld || LidAmount <= 0f) lidFallVel = 0f;
         }
 
         public void StartDancing()

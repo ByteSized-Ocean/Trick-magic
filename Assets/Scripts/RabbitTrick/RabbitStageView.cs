@@ -385,7 +385,7 @@ namespace Sleight.RabbitTrick
             {
                 Vector2 hand = game.Hands.Hands[i].position;
                 gloves[i].position = hand;
-                DrawGrip(i, game.Hands.Hands[i].holding != HandItem.None);
+                DrawGrip(i, game.Hands.Hands[i].gripping);
                 handRings[i].enabled = i == game.Hands.Active;
                 float pulse = 1f + 0.06f * Mathf.Sin(Time.time * 6);
                 handRings[i].transform.localScale = new Vector3(0.53f / circle.bounds.size.x, 0.53f / circle.bounds.size.y, 1) * pulse;

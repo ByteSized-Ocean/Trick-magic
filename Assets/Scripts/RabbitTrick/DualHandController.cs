@@ -4,11 +4,11 @@ using UnityEngine.InputSystem;
 
 namespace Sleight.RabbitTrick
 {
-    [Serializable] public class TrickHand { public Vector2 position; public HandItem holding; }
+    [Serializable] public class TrickHand { public Vector2 position; public HandItem holding; public bool gripping; }
     public sealed class DualHandController : MonoBehaviour
     {
         public float speed = 2.2f, walkSpeed = 2.2f, grabRadius = 0.34f;
-        public float rabbitGrabRadius = 0.6f;   // 兔子玩偶比把手大，抓取范围放宽
+        public float rabbitGrabRadius = 0.25f;  // 离兔子外形还差多远也算抓到（按外形算，见 DistanceToRabbit）
         public float upperArm = 0.53f, forearm = 0.53f;
         public float Reach => upperArm + forearm - 0.01f;
         public int Active { get; private set; }
@@ -46,6 +46,9 @@ namespace Sleight.RabbitTrick
             // 按住 E 抓，松开 E 放。按住期间按 F 切手，原来那只手会一直抓着（交接就靠这个）。
             if (kb.eKey.wasPressedThisFrame) Grab(game);
             if (kb.eKey.wasReleasedThisFrame) Release(game);
+            // 握拳的画面：当前这只手只要按着 E 就握拳（哪怕没抓到东西），另一只手抓着东西时保持握拳。
+            for (int i = 0; i < 2; i++)
+                Hands[i].gripping = Hands[i].holding != HandItem.None || (i == Active && kb.eKey.isPressed);
             game.Audience.DancerDragging = Hands[0].holding == HandItem.Dancer || Hands[1].holding == HandItem.Dancer;
         }
         public void MoveBody(RabbitTrickGame game, Vector2 delta)
@@ -148,7 +151,12 @@ namespace Sleight.RabbitTrick
             HandItem nearest = HandItem.None; float distance = float.MaxValue;
             Check(HandItem.Lid, game.LidHandle, ref nearest, ref distance);
             Check(HandItem.Box, game.BoxHandle, ref nearest, ref distance);
-            if (!game.Rules.RabbitInside && Other.holding != HandItem.Rabbit) Check(HandItem.Rabbit, game.RabbitPosition, ref nearest, ref distance, rabbitGrabRadius);
+            if (!game.Rules.RabbitInside && Other.holding != HandItem.Rabbit)
+            {
+                // 兔子按整个身体（含耳朵）算：手碰到兔子身上任意一处就能抓，不要求够到兔子的中心。
+                float d = DistanceToRabbit(hand.position, game.RabbitPosition);
+                if (d <= rabbitGrabRadius && d < distance) { distance = d; nearest = HandItem.Rabbit; }
+            }
             Check(HandItem.Dancer, game.DancerHandle, ref nearest, ref distance);
             if (nearest != HandItem.None && Other.holding == nearest) nearest = HandItem.None;
             hand.holding = nearest;
@@ -158,6 +166,16 @@ namespace Sleight.RabbitTrick
             else if (nearest == HandItem.Dancer) hand.position = game.DancerHandle;
             else game.Notify("WASD 走近道具，方向键把手移到把手上，按住 E 抓取");
         }
+        // 兔子的外形范围（相对 RabbitPosition）：身体到耳朵尖。
+        static readonly Rect RabbitBounds = new Rect(-0.3f, -0.3f, 0.6f, 0.98f);
+        static float DistanceToRabbit(Vector2 hand, Vector2 rabbit)
+        {
+            Vector2 local = hand - rabbit;
+            float dx = Mathf.Max(RabbitBounds.xMin - local.x, 0f, local.x - RabbitBounds.xMax);
+            float dy = Mathf.Max(RabbitBounds.yMin - local.y, 0f, local.y - RabbitBounds.yMax);
+            return Mathf.Sqrt(dx * dx + dy * dy);
+        }
+
         void Check(HandItem item, Vector2 point, ref HandItem nearest, ref float distance) => Check(item, point, ref nearest, ref distance, grabRadius);
         void Check(HandItem item, Vector2 point, ref HandItem nearest, ref float distance, float radius)
         {
