@@ -8,6 +8,17 @@ namespace Sleight.RabbitTrick
         public float dwellMin = 2.8f, dwellMax = 4.6f, travelMin = 1.1f, travelMax = 1.7f;
         // 开场演示时由脚本指挥追光（ScriptMove），不随机走
         public bool Scripted { get; set; }
+        // 跟随某个东西（第 2 关的芭蕾女郎）：追光一直对着 Follow 给的位置，不随机走
+        public bool Following { get; private set; }
+        float followTarget;
+        public void Follow(float x) { Following = true; followTarget = x; }
+        public void StopFollowing()
+        {
+            if (!Following) return;
+            Following = false;
+            travelElapsed = travelDuration = 0f;
+            dwellRemaining = Random.Range(dwellMin, dwellMax) * 0.5f;
+        }
         // 偏向舞台左边：每次挑下一个落点时，有 leftChance 的机会去左边 [leftMin, leftMax]，并且在那里停得更久
         public float leftChance, leftMin = 1.4f, leftMax = 3.0f, leftDwellMin = 6f, leftDwellMax = 9f;
         public void SetLeftBias(float chance, float dwellMin, float dwellMax) { leftChance = chance; leftDwellMin = dwellMin; leftDwellMax = dwellMax; }
@@ -23,7 +34,7 @@ namespace Sleight.RabbitTrick
         float fromX, targetX, travelElapsed, travelDuration, dwellRemaining, danceTime, anchorX;
         public void ResetLight(float boxX)
         {
-            X = fromX = targetX = boxX; travelElapsed = travelDuration = 0;
+            X = fromX = targetX = boxX; travelElapsed = travelDuration = 0; Following = false;
             dwellRemaining = 9f; DanceRemaining = danceTime = 0;
             DancerX = anchorX = 8.25f; DancerDragging = false; ApplyShader();
         }
@@ -32,6 +43,12 @@ namespace Sleight.RabbitTrick
         public void SetDancerX(float x) { DancerX = anchorX = Mathf.Clamp(x, 1.1f, 8.65f); DancerDragging = true; }
         public void Tick(float dt)
         {
+            if (Following && !Scripted)
+            {
+                X = Mathf.MoveTowards(X, followTarget, dt * 3f);
+                ApplyShader();
+                return;
+            }
             if (Scripted)
             {
                 if (Moving)

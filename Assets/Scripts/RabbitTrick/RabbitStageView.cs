@@ -456,6 +456,7 @@ namespace Sleight.RabbitTrick
                 dancerLimbs[i].SetPosition(1, new Vector3(side * (leg ? 0.33f : 0.78f), (leg ? -0.14f : 0.83f) + dance * side * 0.15f, 0));
             }
             DrawAudience(game.Audience.X);
+            DrawCheering(game);
             DrawTorches();
             game.Trick?.Draw();
             UpdateHud(game);
@@ -653,6 +654,85 @@ namespace Sleight.RabbitTrick
         }
 
         Text demoBanner;
+        UnityEngine.UI.Button replayButton;
+
+        // 左上角"重播演示"按钮：点一下重新开始本关并在老电视里再播一遍演示
+        void DrawReplayButton(RabbitTrickGame game)
+        {
+            if (replayButton == null)
+            {
+                if (UnityEngine.EventSystems.EventSystem.current == null)
+                    new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem), typeof(UnityEngine.InputSystem.UI.InputSystemUIInputModule));
+                var bg = Panel("ReplayDemoButton", HudCanvas, new Vector2(35, -104), new Vector2(230, 38), new Color(0.07f, 0.055f, 0.11f, 0.9f));
+                bg.raycastTarget = true;
+                var label = Label("ReplayDemoLabel", bg.transform, new Vector2(0, 0), new Vector2(230, 38), "▶  REPLAY THE DEMO", 18, teal);
+                label.font = HudFont;
+                label.alignment = TextAnchor.MiddleCenter;
+                replayButton = bg.gameObject.AddComponent<UnityEngine.UI.Button>();
+                var colors = replayButton.colors;
+                colors.highlightedColor = new Color(1.4f, 1.4f, 1.4f, 1f);
+                colors.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
+                replayButton.colors = colors;
+                replayButton.onClick.AddListener(game.ReplayDemo);
+            }
+            replayButton.gameObject.SetActive(!game.InDemo && !game.ChangingLevel);
+        }
+
+        // 过关时台下观众高举双手、在头顶鼓掌，脑袋跟着一颠一颠。手臂在运行时搭，挂在每个观众的脖子位置。
+        Transform[] cheerArms;      // 每人两只：2i 左、2i+1 右
+        Vector3[] headRest;
+        float cheer;                // 0..1，欢呼的程度（举手过渡）
+
+        void DrawCheering(RabbitTrickGame game)
+        {
+            if (!Application.isPlaying || audienceHeadPivots == null || audienceHeadPivots.Length == 0) return;
+            if (cheerArms == null)
+            {
+                cheerArms = new Transform[audienceHeadPivots.Length * 2];
+                headRest = new Vector3[audienceHeadPivots.Length];
+                var fill = new Color32(58, 48, 70, 255);
+                for (int i = 0; i < audienceHeadPivots.Length; i++)
+                {
+                    var head = audienceHeadPivots[i];
+                    if (head == null) continue;
+                    headRest[i] = head.localPosition;
+                    for (int side = 0; side < 2; side++)
+                    {
+                        float sx = side == 0 ? -1f : 1f;
+                        var shoulder = Group("CheerArm", world, (Vector2)head.position + new Vector2(sx * 0.27f, -0.02f));
+                        var arm = Rect("CheerForearm", shoulder, new Vector2(0, 0.3f), new Vector2(0.09f, 0.6f), fill, 47);
+                        arm.sharedMaterial = overlayMaterial;
+                        var hand = Disc("CheerHand", shoulder, new Vector2(0, 0.62f), new Vector2(0.15f, 0.15f), fill, 47, true);
+                        cheerArms[i * 2 + side] = shoulder;
+                        shoulder.gameObject.SetActive(false);
+                    }
+                }
+            }
+            bool cheering = game.IsFinished && !game.InDemo;
+            cheer = Mathf.MoveTowards(cheer, cheering ? 1f : 0f, Time.deltaTime * 4f);
+            for (int i = 0; i < audienceHeadPivots.Length; i++)
+            {
+                var head = audienceHeadPivots[i];
+                if (head == null) continue;
+                float phase = i * 1.37f;
+                // 拍手：两臂在"张开"和"头顶合拢"之间来回，每人节奏略有不同
+                float clap = 0.5f + 0.5f * Mathf.Sin(Time.time * (9f + (i % 3)) + phase);
+                float bounce = cheer * Mathf.Abs(Mathf.Sin(Time.time * 4.5f + phase)) * 0.06f;
+                head.localPosition = headRest[i] + new Vector3(0f, bounce, 0f);
+                for (int side = 0; side < 2; side++)
+                {
+                    var arm = cheerArms[i * 2 + side];
+                    if (arm == null) continue;
+                    arm.gameObject.SetActive(cheer > 0.01f);
+                    float sx = side == 0 ? 1f : -1f;
+                    float raised = Mathf.Lerp(80f, Mathf.Lerp(28f, -6f, clap), cheer);   // 从垂下到举过头顶
+                    arm.localRotation = Quaternion.Euler(0, 0, sx * raised);
+                    var p = arm.position;
+                    arm.position = new Vector3(p.x, head.position.y - 0.02f - (1f - cheer) * 0.15f, p.z);
+                    arm.localScale = new Vector3(1f, Mathf.Lerp(0.3f, 1f, cheer), 1f);
+                }
+            }
+        }
 
         // 演示时画面上方正中的大标题："HOW IT'S DONE"，提示这是演示、可以跳过
         void DrawDemoBanner(RabbitTrickGame game)
@@ -743,7 +823,10 @@ namespace Sleight.RabbitTrick
             {
                 var tv = GetComponent<DemoTelevision>();
                 if (tv == null) tv = gameObject.AddComponent<DemoTelevision>();
-                tv.Show(game.InDemo, this, "HOW TO PERFORM THE " + Ordinal(game.Level + 1).ToUpper() + " TRICK:  " + game.TrickName, game.DemoCaption);
+                string skipText = game.CanSkipDemo ? "PRESS ANY KEY TO SKIP THE DEMO"
+                    : "YOU CAN SKIP IN " + Mathf.CeilToInt(RabbitTrickGame.DemoSkipLock - game.DemoAge) + "...";
+                tv.Show(game.InDemo, this, "HOW TO PERFORM THE " + Ordinal(game.Level + 1).ToUpper() + " TRICK:  " + game.TrickName, game.DemoCaption, skipText);
+                DrawReplayButton(game);
             }
             if (game.InDemo) controls.text = "HOW TO PLAY THIS TRICK  /  PRESS ANY KEY TO SKIP";
             else controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     按住 E  抓取（松开放下）     R  重试"
