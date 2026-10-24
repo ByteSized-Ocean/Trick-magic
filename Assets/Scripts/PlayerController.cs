@@ -19,6 +19,7 @@ namespace Sleight
         public float performDuration = 1.0f;
 
         public Spotlight spotlight;
+        public bool actionsEnabled = true;   // 搭台段关掉：E / 空格交给手（GDD §0.3）
 
         [Header("帧动画（§18.7，帧图朝右，空着就不播）")]
         public Sprite[] idleFrames;
@@ -56,6 +57,8 @@ namespace Sleight
         public bool CanAct() => spotlight != null && spotlight.IsSettled() && CurrentZone != spotlight.CurrentZone();
         public bool CanPerform() => CanAct();
         public bool IsOnAssist(Zone z) => Mathf.Abs(X - Stage.AssistX(z)) <= 0.5f;
+
+        public Vector3 Shoulder => transform.position + new Vector3(0f, 2.15f, -0.05f);
 
         public PlayerSnapshot Snapshot(Zone target) => new PlayerSnapshot
         {
@@ -114,11 +117,18 @@ namespace Sleight
             if (kb == null) return;
 
             float dir = 0f;
-            if (kb.rightArrowKey.isPressed || kb.dKey.isPressed) dir += 1f;
-            if (kb.leftArrowKey.isPressed || kb.aKey.isPressed) dir -= 1f;
+            // 搭台段方向键归手，只能用 A / D 走（GDD §0.3）。
+            if (kb.dKey.isPressed || (actionsEnabled && kb.rightArrowKey.isPressed)) dir += 1f;
+            if (kb.aKey.isPressed || (actionsEnabled && kb.leftArrowKey.isPressed)) dir -= 1f;
             SetX(X + dir * moveSpeed * dt);
             State = dir != 0f ? PlayerState.Walk : PlayerState.Idle;
             if (dir != 0f && sr != null) sr.flipX = dir < 0f;
+
+            if (!actionsEnabled)
+            {
+                UpdateAnim(false);
+                return;
+            }
 
             bool ePressed = kb.eKey.wasPressedThisFrame;
             bool spacePressed = kb.spaceKey.wasPressedThisFrame;

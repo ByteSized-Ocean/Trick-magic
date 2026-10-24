@@ -108,7 +108,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sleight.PropInteractable
   slot: 
   type: 
+  isDecoy: 0
   stateSprites:
+  - {fileID: 0}
+  - {fileID: 0}
+  ghostSprites:
   - {fileID: 0}
   - {fileID: 0}
 --- !u!114 &3585762391434353280

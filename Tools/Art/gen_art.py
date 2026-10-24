@@ -63,9 +63,9 @@ class Canvas:
         self.details.append((color, m))
         return DetailLayer(m)
 
-    def render(self, rim=True, grain=6, seed=0):
+    def render(self, rim=True, grain=6, seed=0, fill=NEAR_BLACK, rim_color=WARM_BROWN):
         mask = self.mask.resize((self.w, self.h), Image.LANCZOS)
-        img = Image.new("RGBA", (self.w, self.h), NEAR_BLACK + (0,))
+        img = Image.new("RGBA", (self.w, self.h), fill + (0,))
         img.putalpha(mask)
 
         if rim:
@@ -73,7 +73,7 @@ class Canvas:
             hard = mask.point(lambda a: 255 if a > 128 else 0)
             shifted = ImageChops.offset(hard, -1, 1)
             edge = ImageChops.subtract(hard, shifted)
-            brown = Image.new("RGBA", img.size, WARM_BROWN + (255,))
+            brown = Image.new("RGBA", img.size, rim_color + (255,))
             img.paste(brown, (0, 0), edge)
             img.putalpha(mask)
 
@@ -216,6 +216,106 @@ def magician(pose):
     return c.render(seed=zlib.crc32(repr(sorted(pose.items())).encode()))
 
 
+# 彩色版魔术师（跟参考图）：紫礼帽金带、米色脸、浅灰衬衫、紫外套、藏青裤子。造型和姿势沿用剪影版。
+HAT = (74, 58, 122)
+HAT_BAND = (200, 150, 46)
+FACE = (201, 168, 138)
+SHIRT = (200, 196, 192)
+COAT = (90, 46, 110)
+COAT_BACK = (66, 34, 82)
+TROUSERS = (46, 58, 90)
+TROUSERS_BACK = (36, 44, 70)
+SHOES = (30, 26, 36)
+GLOVE = (243, 230, 181)
+
+
+def magician_color(pose):
+    c = Paint(128, 192)
+    d = math.radians
+    hip = (62, 112)
+    bow = d(pose.get("bow", 0))
+    torso_ang = bow + d(6)
+    neck = (hip[0] + math.sin(torso_ang) * 50, hip[1] - math.cos(torso_ang) * 50 + pose.get("breath", 0))
+    up = (math.sin(torso_ang), -math.cos(torso_ang))
+    side = (math.cos(torso_ang), math.sin(torso_ang))
+    sh_l = (neck[0] - side[0] * 15, neck[1] - side[1] * 15)
+    sh_r = (neck[0] + side[0] * 13, neck[1] + side[1] * 13)
+
+    def leg(which, color):
+        thigh, knee = pose["legs"][which]
+        k = polar(hip, 38, d(thigh))
+        a = polar(k, 38, d(thigh - knee))
+        a = (a[0], min(a[1], 186))
+        c.limb([hip, k, a], 8, color)
+        c.limb([a, (a[0] + 9, a[1] + 1)], 5, SHOES)
+
+    def arm(which, color):
+        upper, fore = pose["arms"][which]
+        sh = sh_l if which == "back" else sh_r
+        e = polar(sh, 26, d(upper) + torso_ang)
+        h = polar(e, 24, d(upper + fore) + torso_ang)
+        c.limb([sh, e, h], 5, color)
+        hand_ang = d(upper + fore) + torso_ang
+        for spread in (-28, 0, 28):
+            c.limb([h, polar(h, 6, hand_ang + d(spread))], 2, GLOVE)
+        if which == "front" and pose.get("wand", True):
+            wa = hand_ang + d(pose.get("wand_ang", -70))
+            mid = polar(h, 13, wa)
+            tip = polar(mid, 11, wa + d(28))
+            c.limb([h, mid, tip], 2.2, SHOES)
+            c.line([polar(mid, 7, wa + d(28)), tip], CREAM, 2)
+
+    leg("back", TROUSERS_BACK)
+    arm("back", COAT_BACK)
+
+    w_l, w_r = (hip[0] - 10, hip[1]), (hip[0] + 9, hip[1])
+    tail = d(pose.get("tail", 0))
+    t1 = polar(w_l, 34, d(12) + tail)
+    t2 = polar((w_l[0] + 6, w_l[1]), 30, d(4) + tail)
+    c.poly([w_l, (w_l[0] + 10, w_l[1] - 4), t2, (t1[0] + 3, t1[1]), t1], COAT_BACK)   # 燕尾
+    leg("front", TROUSERS)
+    c.poly([sh_l, sh_r, w_r, w_l], COAT)                                               # 外套
+    mid_top = ((sh_l[0] + sh_r[0]) / 2 + 2, (sh_l[1] + sh_r[1]) / 2 + 2)
+    c.poly([mid_top, (mid_top[0] + 10, mid_top[1]), (w_r[0] - 2, w_r[1] - 6), (w_r[0] - 10, w_r[1] - 6)], SHIRT)   # 衬衫前襟
+
+    head = (neck[0] + up[0] * 11, neck[1] + up[1] * 11)
+    c.limb([neck, head], 6, FACE)
+    c.ellipse((head[0] - 9, head[1] - 10, head[0] + 10, head[1] + 9), FACE)
+    c.poly([(head[0] + 8, head[1] - 2), (head[0] + 14, head[1] + 2), (head[0] + 8, head[1] + 4)], FACE)
+    c.rect((head[0] + 2, head[1] - 3, head[0] + 4, head[1] - 1), SHOES)               # 眼睛
+
+    hat_ang = torso_ang + d(pose.get("hat", -4))
+    hb = (head[0] + up[0] * 7, head[1] + up[1] * 7)
+    brim = [(hb[0] - 15, hb[1] - 2), (hb[0] + 16, hb[1] - 2), (hb[0] + 16, hb[1] + 2), (hb[0] - 15, hb[1] + 2)]
+    crown = [(hb[0] - 10, hb[1] - 1), (hb[0] + 11, hb[1] - 1), (hb[0] + 13, hb[1] - 44), (hb[0] - 9, hb[1] - 44)]
+    band = [(hb[0] - 10, hb[1] - 2), (hb[0] + 11, hb[1] - 2), (hb[0] + 11, hb[1] - 8), (hb[0] - 10, hb[1] - 8)]
+    c.poly(rot(hb[0], hb[1], crown, hat_ang), HAT)
+    c.poly(rot(hb[0], hb[1], band, hat_ang), HAT_BAND)
+    c.poly(rot(hb[0], hb[1], brim, hat_ang), HAT)
+
+    arm("front", COAT)
+    return c.render(seed=zlib.crc32(repr(sorted(pose.items())).encode()), grain=3)
+
+
+def glove():
+    """搭台段那只大手套（参考图）：奶油色，四根手指加大拇指，手腕朝下接提线。"""
+    c = Paint(32, 32)
+    c.ellipse((7, 12, 25, 29), GLOVE)
+    for x in (8, 12.5, 17, 21.5):
+        c.rect((x, 4, x + 4, 18), GLOVE)
+        c.ellipse((x, 2, x + 4, 7), GLOVE)
+    c.ellipse((2, 14, 10, 22), GLOVE)                                                  # 大拇指
+    c.rect((11, 27, 21, 32), (214, 200, 150))                                         # 手腕
+    return c.render(seed=22, grain=2)
+
+
+def ring():
+    """当前在控制的那只手后面的青绿色圆圈。"""
+    img = Image.new("RGBA", (48 * S, 48 * S), (0, 0, 0, 0))
+    ImageDraw.Draw(img).ellipse((0, 0, 48 * S - 1, 48 * S - 1), fill=(47, 168, 142, 200))
+    return img.resize((48, 48), Image.LANCZOS)
+
+
 STAND_LEGS = {"back": (-4, 2), "front": (4, 2)}
 IDLE_ARMS = {"back": (8, 6), "front": (-14, -50)}
 
@@ -235,78 +335,190 @@ MAGICIAN = {
 }
 
 
-# ---------------------------------------------------------------- 道具（§19.2，均贴地面线）
+# ---------------------------------------------------------------- 道具（均贴地面线；尺寸比 §19.2 放大，跟参考图的比例走）
 
-def plank_lines(c, x0, x1, ys):
-    wood = c.detail(WARM_BROWN)
-    for y in ys:
-        wood.line([(x0, y), (x1, y)], 1)
+# 道具改成平涂彩色（参考图：蓝色金边魔术箱、紫布下的兔子、金框落地镜）。人物仍是剪影。
+BOX_BLUE = (78, 110, 138)
+BOX_SIDE = (60, 88, 113)
+BOX_INSIDE = (30, 36, 51)
+TRIM = (232, 163, 60)
+CREAM = (243, 227, 181)
+VELVET_PURPLE = (90, 58, 102)
+VELVET_DARK = (71, 48, 79)
+CUSHION = (75, 51, 84)
+FRINGE = (216, 162, 58)
+RABBIT = (184, 184, 200)
+RABBIT_BELLY = (201, 169, 138)
+RABBIT_EAR = (176, 112, 122)
+COLLAR = (138, 36, 51)
+GOLD = (200, 150, 46)
+GLASS = (110, 140, 168)
+GLASS_HI = (214, 228, 240)
+WOOD = (107, 74, 53)
+WOOD_DARK = (86, 58, 41)
+
+
+class Paint:
+    """平涂彩色画布：y 轴朝下、按目标像素坐标，内部 S 倍绘制。"""
+
+    def __init__(self, w, h):
+        self.w, self.h = w, h
+        self.img = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
+        self.d = ImageDraw.Draw(self.img)
+
+    def _p(self, pts):
+        return [(x * S, y * S) for x, y in pts]
+
+    def poly(self, pts, color):
+        self.d.polygon(self._p(pts), fill=color + (255,))
+
+    def rect(self, box, color):
+        x0, y0, x1, y1 = box
+        self.d.rectangle((x0 * S, y0 * S, x1 * S - 1, y1 * S - 1), fill=color + (255,))
+
+    def ellipse(self, box, color):
+        x0, y0, x1, y1 = box
+        self.d.ellipse((x0 * S, y0 * S, x1 * S, y1 * S), fill=color + (255,))
+
+    def line(self, pts, color, width):
+        self.d.line(self._p(pts), fill=color + (255,), width=max(1, int(width * S)))
+
+    def limb(self, pts, width, color):
+        p = self._p(pts)
+        self.d.line(p, fill=color + (255,), width=int(width * S), joint="curve")
+        r = width * S / 2
+        for x, y in (p[0], p[-1]):
+            self.d.ellipse((x - r, y - r, x + r, y + r), fill=color + (255,))
+
+    def render(self, seed=0, grain=4):
+        return add_grain(self.img.resize((self.w, self.h), Image.LANCZOS), grain, seed)
+
+
+def rabbit(c, x, y):
+    """坐着的兔子，脚底在 (x, y)。"""
+    c.ellipse((x - 11, y - 22, x + 11, y), RABBIT)               # 身子
+    c.ellipse((x - 6, y - 16, x + 6, y - 2), RABBIT_BELLY)       # 肚子
+    c.ellipse((x - 16, y - 9, x - 7, y), RABBIT)                 # 尾巴
+    c.ellipse((x - 8, y - 36, x + 9, y - 19), RABBIT)            # 头
+    c.rect((x - 7, y - 21, x + 8, y - 18), COLLAR)               # 项圈
+    for ex in (x - 6, x + 3):                                    # 两只长耳朵
+        c.rect((ex, y - 54, ex + 5, y - 33), RABBIT)
+        c.rect((ex + 1, y - 51, ex + 4, y - 36), RABBIT_EAR)
+    c.rect((x + 3, y - 30, x + 5, y - 28), NEAR_BLACK)           # 眼睛
+    c.rect((x + 8, y - 26, x + 10, y - 24), RABBIT_EAR)          # 鼻子
+
+
+def box_body(c, top):
+    c.rect((4, top, 68, 64), TRIM)                               # 金边外框
+    c.rect((7, top + 3, 65, 61), BOX_BLUE)
+    c.rect((7, top + 3, 12, 61), BOX_SIDE)                       # 侧面阴影
+    cx, cy = 37, (top + 64) // 2 + 2                             # 菱形徽记
+    c.poly([(cx, cy - 9), (cx + 9, cy), (cx, cy + 9), (cx - 9, cy)], TRIM)
+    c.rect((cx - 6, cy - 2, cx + 6, cy + 2), CREAM)
 
 
 def box_open():
-    c = Canvas(48, 56)
-    c.rect((3, 20, 45, 56))                       # 箱身（矮）
-    c.poly([(3, 20), (6, 2), (12, 2), (9, 20)])   # 竖起来的箱盖
-    plank_lines(c, 5, 43, [30, 40, 50])
-    inside = c.detail(AGED_PAPER)                 # 里面露出的东西：一角旧手帕
-    inside.poly([(18, 21), (24, 11), (29, 15), (33, 21)])
+    c = Paint(72, 64)
+    box_body(c, 22)
+    c.rect((7, 22, 65, 27), BOX_INSIDE)                          # 敞开的箱口
+    c.poly([(4, 22), (14, 2), (19, 4), (10, 22)], TRIM)          # 掀起来的箱盖
+    c.poly([(7, 22), (15, 5), (17, 6), (10, 22)], BOX_SIDE)
+    for ex in (30, 38):                                          # 里面露出的兔耳朵
+        c.rect((ex, 6, ex + 5, 24), RABBIT)
+        c.rect((ex + 1, 9, ex + 4, 22), RABBIT_EAR)
     return c.render(seed=11)
 
 
 def box_sealed():
-    c = Canvas(48, 44)
-    c.rect((3, 8, 45, 44))
-    c.rect((1, 5, 47, 10))                        # 合上的盖沿
-    plank_lines(c, 5, 43, [20, 30, 39])
-    latch = c.detail(AGED_PAPER)
-    latch.rect((22, 9, 26, 14))
+    c = Paint(72, 64)
+    box_body(c, 16)
+    c.rect((2, 11, 70, 17), TRIM)                                # 合上的箱盖
+    c.rect((4, 9, 68, 12), BOX_SIDE)
+    c.ellipse((29, 4, 45, 12), CREAM)                            # 把手
     return c.render(seed=12)
 
 
 def cloth_off():
-    c = Canvas(72, 40)
-    c.ellipse((18, 8, 50, 40))                    # 底下那一团（鸟笼似的）
-    c.rect((18, 24, 50, 40))
-    bars = c.detail(WARM_BROWN)
-    for x in (24, 30, 36, 42):
-        bars.line([(x, 12), (x, 39)], 1)
-    c.poly([(48, 40), (54, 30), (62, 33), (70, 40)])  # 掀到一边的布
+    c = Paint(80, 64)
+    c.ellipse((8, 52, 56, 64), CUSHION)                          # 紫色坐垫
+    rabbit(c, 32, 57)
+    c.poly([(54, 64), (62, 50), (72, 52), (80, 64)], VELVET_PURPLE)   # 掀到一边的布
+    c.line([(60, 63), (66, 53)], VELVET_DARK, 1.5)
+    for x in range(56, 80, 5):
+        c.rect((x, 62, x + 2, 64), FRINGE)
     return c.render(seed=13)
 
 
 def cloth_on():
-    c = Canvas(72, 56)
-    c.ellipse((6, 4, 66, 64))                     # 圆顶蓬
-    c.rect((6, 34, 66, 56))
-    c.poly([(4, 56), (8, 46), (14, 56)])
-    c.poly([(58, 56), (64, 46), (68, 56)])
-    folds = c.detail(WARM_BROWN)
-    for x0, x1 in ((22, 16), (36, 34), (50, 56)):
-        folds.line([(x0, 12), (x1, 54)], 1)
-    tassel = c.detail(CRIMSON)
-    for x in range(10, 64, 9):
-        tassel.line([(x, 54), (x, 56)], 2)
+    c = Paint(80, 64)
+    c.ellipse((6, 6, 74, 76), VELVET_PURPLE)                     # 圆顶蓬
+    c.rect((6, 40, 74, 62), VELVET_PURPLE)
+    for x0, x1 in ((22, 16), (40, 40), (58, 64)):                # 褶皱
+        c.line([(x0, 12), (x1, 60)], VELVET_DARK, 2)
+    c.ellipse((34, 0, 46, 10), FRINGE)                           # 顶上的小球
+    for x in range(8, 74, 6):                                    # 金色流苏
+        c.rect((x, 59, x + 3, 64), FRINGE)
     return c.render(seed=14)
 
 
 def mirror(flipped):
-    c = Canvas(40, 112)
-    c.rect((6, 4, 34, 92))                        # 镜框
-    c.ellipse((4, 0, 36, 12))
-    c.limb([(20, 92), (20, 104)], 4)              # 立柱
-    c.poly([(6, 112), (20, 102), (34, 112)])      # 三脚底座
+    c = Paint(48, 128)
+    c.ellipse((4, 0, 44, 20), GOLD)                              # 圆拱顶的金框
+    c.rect((4, 10, 44, 104), GOLD)
     if flipped:
-        # 镜面朝外：照不出任何人，只有一道旧纸色的亮边和一抹斜光
-        edge = c.detail(AGED_PAPER)
-        edge.rect((29, 10, 31, 86))
-        sheen = c.detail(WARM_BROWN)
-        sheen.line([(11, 60), (25, 24)], 2)
+        c.ellipse((8, 4, 40, 22), GLASS)                         # 镜面朝外：照不出人
+        c.rect((8, 13, 40, 100), GLASS)
+        c.line([(14, 70), (30, 24)], GLASS_HI, 3)
+        c.line([(22, 82), (34, 50)], GLASS_HI, 1.5)
     else:
-        back = c.detail(WARM_BROWN)               # 背板的木条
-        back.line([(10, 20), (30, 20)], 1)
-        back.line([(10, 76), (30, 76)], 1)
-        back.line([(20, 20), (20, 76)], 1)
+        c.ellipse((8, 4, 40, 22), WOOD)                          # 镜面朝里：看到木背板
+        c.rect((8, 13, 40, 100), WOOD)
+        for y in (30, 56, 82):
+            c.rect((8, y, 40, y + 2), WOOD_DARK)
+        c.rect((23, 13, 25, 100), WOOD_DARK)
+    c.rect((21, 104, 27, 118), WOOD_DARK)                        # 立柱
+    c.poly([(6, 128), (24, 116), (42, 128)], WOOD_DARK)          # 底座
+    c.rect((6, 124, 42, 128), GOLD)
     return c.render(seed=15 + flipped)
+
+
+def fx_glow():
+    """柔光：白色径向渐变，火把光晕和脚灯用（导入时用双线性过滤）。"""
+    n = 128
+    img = Image.new("RGBA", (n, n), (255, 255, 255, 0))
+    px = img.load()
+    for y in range(n):
+        for x in range(n):
+            r = math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / (n / 2)
+            a = max(0.0, 1.0 - r) ** 2
+            px[x, y] = (255, 255, 255, int(a * 255))
+    return img
+
+
+def fx_flame():
+    """火苗：底圆顶尖的水滴形，白色，颜色由 SpriteRenderer 染。"""
+    w, h = 32, 48
+    img = Image.new("RGBA", (w * S, h * S), (255, 255, 255, 0))
+    d = ImageDraw.Draw(img)
+    d.ellipse((4 * S, 22 * S, 28 * S, 46 * S), fill=(255, 255, 255, 255))
+    d.polygon([(5 * S, 32 * S), (16 * S, 0), (27 * S, 32 * S)], fill=(255, 255, 255, 255))
+    return img.resize((w, h), Image.LANCZOS).filter(ImageFilter.GaussianBlur(0.6))
+
+
+def ghost(img):
+    """成品图虚影：同一剪影，换成纯旧纸色（GDD §0.2）。"""
+    g = Image.new("RGBA", img.size, AGED_PAPER + (0,))
+    g.putalpha(img.getchannel("A"))
+    return g
+
+
+def hand():
+    """搭台段单独操控的那只手：三根手指，手腕朝上（连提线）。"""
+    c = Canvas(24, 24)
+    c.ellipse((7, 4, 17, 14))
+    for x0, x1 in ((8, 6), (12, 12), (16, 18)):
+        c.limb([(x0, 12), (x1, 21)], 2.4)
+    return c.render(seed=21)
 
 
 def marker_assist():
@@ -320,50 +532,43 @@ def marker_assist():
 
 # ---------------------------------------------------------------- 观众（台前一排后脑勺）
 
+AUDIENCE_KINDS = 7
+AUDIENCE_FILL = (58, 48, 70)
+AUDIENCE_RIM = (128, 104, 112)
+NECK_Y = 60   # 头与身体的分界（画布像素，自上而下）；头图的 pivot 就在这一行（导入规则里的 0.375）
+
+
 def audience(kind):
-    c = Canvas(80, 96)
+    """台前一排后脑勺。身体和头分成两张同尺寸的图，头绕脖子转，跟着追光看（AudienceHead）。"""
+    body, head = Canvas(80, 96), Canvas(80, 96)
     rnd = random.Random(kind * 31 + 5)
     shoulders = 26 + rnd.randint(-3, 4)
-    c.ellipse((40 - shoulders, 58, 40 + shoulders, 130))
+    body.ellipse((40 - shoulders, 58, 40 + shoulders, 130))
+    body.rect((34, NECK_Y - 4, 46, 66))           # 脖子
     head_r = 14 + rnd.randint(-2, 2)
-    hy = 46
-    c.ellipse((40 - head_r, hy - head_r, 40 + head_r, hy + head_r + 2))
-    c.rect((34, hy + head_r - 2, 46, 64))         # 脖子
+    hy = NECK_Y - head_r - 1
+    head.ellipse((40 - head_r, hy - head_r, 40 + head_r, hy + head_r + 2))
     if kind == 0:                                 # 圆顶礼帽
-        c.ellipse((40 - head_r - 6, hy - 10, 40 + head_r + 6, hy - 4))
-        c.ellipse((40 - head_r + 1, hy - head_r - 12, 40 + head_r - 1, hy - 2))
+        head.ellipse((40 - head_r - 6, hy - 10, 40 + head_r + 6, hy - 4))
+        head.ellipse((40 - head_r + 1, hy - head_r - 12, 40 + head_r - 1, hy - 2))
     elif kind == 1:                               # 盘发
-        c.ellipse((30, hy - head_r - 10, 50, hy - head_r + 6))
+        head.ellipse((30, hy - head_r - 10, 50, hy - head_r + 6))
     elif kind == 2:                               # 鸭舌帽
-        c.ellipse((40 - head_r - 1, hy - head_r - 3, 40 + head_r + 1, hy + 2))
-        c.poly([(40 + head_r - 4, hy - 4), (40 + head_r + 10, hy - 1), (40 + head_r - 2, hy + 1)])
+        head.ellipse((40 - head_r - 1, hy - head_r - 3, 40 + head_r + 1, hy + 2))
+        head.poly([(40 + head_r - 4, hy - 4), (40 + head_r + 10, hy - 1), (40 + head_r - 2, hy + 1)])
     elif kind == 3:                               # 带羽毛的女帽
-        c.ellipse((40 - head_r - 8, hy - 8, 40 + head_r + 8, hy - 1))
-        c.poly([(46, hy - 8), (64, hy - 34), (56, hy - 8)])
+        head.ellipse((40 - head_r - 8, hy - 8, 40 + head_r + 8, hy - 1))
+        head.poly([(46, hy - 8), (64, hy - 34), (56, hy - 8)])
     elif kind == 4:                               # 秃顶，两只大耳朵
-        c.ellipse((40 - head_r - 4, hy - 3, 40 - head_r + 4, hy + 8))
-        c.ellipse((40 + head_r - 4, hy - 3, 40 + head_r + 4, hy + 8))
+        head.ellipse((40 - head_r - 4, hy - 3, 40 - head_r + 4, hy + 8))
+        head.ellipse((40 + head_r - 4, hy - 3, 40 + head_r + 4, hy + 8))
+    elif kind == 6:                               # 宽檐软呢帽
+        head.ellipse((40 - head_r - 8, hy - 6, 40 + head_r + 8, hy + 2))
+        head.ellipse((40 - head_r + 2, hy - head_r - 12, 40 + head_r - 2, hy - 2))
     # kind 5：什么也不戴
-    return c.render(rim=False, seed=40 + kind)
-
-
-def watcher():
-    """前排的"他"：同样是后脑勺，略微侧过头。两只眼睛是单独一张图（watcher_eyes），可以跟着追光转。"""
-    c = Canvas(80, 96)
-    c.ellipse((10, 58, 70, 130))
-    c.ellipse((25, 30, 55, 62))
-    c.rect((34, 58, 46, 66))
-    c.ellipse((18, 26, 62, 34))                   # 宽檐软呢帽
-    c.ellipse((27, 12, 53, 30))
-    return c.render(rim=False, seed=99)
-
-
-def watcher_eyes():
-    img = Image.new("RGBA", (16, 6), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.ellipse((1, 1, 4, 4), fill=AGED_PAPER + (255,))
-    d.ellipse((10, 1, 13, 4), fill=AGED_PAPER + (255,))
-    return img
+    # 不用纯黑：深灰紫的背影，顶上一道舞台反光描边，暗场里也看得见轮廓。
+    return (body.render(seed=40 + kind, fill=AUDIENCE_FILL, rim_color=AUDIENCE_RIM),
+            head.render(seed=60 + kind, fill=AUDIENCE_FILL, rim_color=AUDIENCE_RIM))
 
 
 # ---------------------------------------------------------------- 特效 / 标题
@@ -412,18 +617,24 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     print("写入", OUT)
     for name, pose in MAGICIAN.items():
-        save(magician(pose), name)
-    save(box_open(), "prop_box_open")
-    save(box_sealed(), "prop_box_sealed")
-    save(cloth_off(), "prop_cloth_off")
-    save(cloth_on(), "prop_cloth_on")
-    save(mirror(False), "prop_mirror_normal")
-    save(mirror(True), "prop_mirror_flipped")
+        save(magician_color(pose), name)
+    props = {
+        "prop_box_open": box_open(), "prop_box_sealed": box_sealed(),
+        "prop_cloth_off": cloth_off(), "prop_cloth_on": cloth_on(),
+        "prop_mirror_normal": mirror(False), "prop_mirror_flipped": mirror(True),
+    }
+    for name, img in props.items():
+        save(img, name)
+        save(ghost(img), "ghost_" + name)
+    save(glove(), "player_hand")
+    save(fx_glow(), "fx_glow")
+    save(fx_flame(), "fx_flame")
+    save(ring(), "hand_ring")
     save(marker_assist(), "prop_marker_assist")
-    for k in range(6):
-        save(audience(k), f"audience_{k:02d}")
-    save(watcher(), "audience_watcher")
-    save(watcher_eyes(), "watcher_eyes")
+    for k in range(AUDIENCE_KINDS):
+        body, head = audience(k)
+        save(body, f"audience_body_{k:02d}")
+        save(head, f"audience_head_{k:02d}")
     save(eye_flash(), "eye_flash")
     save(title_card(), "title_card")
 

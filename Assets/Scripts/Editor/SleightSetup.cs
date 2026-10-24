@@ -34,7 +34,17 @@ namespace Sleight.EditorTools
         static readonly Color Crimson = Hex(0x5A1418);
         static readonly Color AgedPaper = Hex(0xD9CBB0);
         static readonly Color SpotYellow = Hex(0xFFD21E);
-        static readonly Color Ambient = Hex(0x4A3E36);   // 暗区要暗，追光才显眼；偏暖
+        static readonly Color Ambient = Hex(0x8A8096);   // 参考图整体偏亮，平涂的颜色要读得出来
+
+        // 舞台配色（跟参考图）：深蓝背板、木地板、深红褶皱大幕、金色边条。
+        static readonly Color Backdrop = Hex(0x2A2740);
+        static readonly Color BackdropLine = Hex(0x3D3958);
+        static readonly Color Plank = Hex(0x7A5238);
+        static readonly Color PlankLine = Hex(0x4A3020);
+        static readonly Color Gold = Hex(0xC8962E);
+        static readonly Color CurtainLight = Hex(0x5E1A32);
+        static readonly Color CurtainDark = Hex(0x3E1022);
+        static readonly Color ConeColor = new Color(0.95f, 0.70f, 0.36f, 0.35f);   // 光柱偏暖橙
         static readonly Color ClearColor = Hex(0x0E0B0A);
 
         static Sprite centerSprite;
@@ -135,7 +145,7 @@ namespace Sleight.EditorTools
             mat.SetOverrideTag("RenderType", "Transparent");
             mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             mat.renderQueue = (int)RenderQueue.Transparent;
-            mat.SetColor("_BaseColor", new Color(1f, 0.824f, 0.118f, 0.35f));
+            mat.SetColor("_BaseColor", ConeColor);
             EditorUtility.SetDirty(mat);
             return mat;
         }
@@ -207,6 +217,7 @@ namespace Sleight.EditorTools
             var prop = go.AddComponent<PropInteractable>();
             prop.type = type;
             prop.stateSprites = new[] { a, b };
+            prop.ghostSprites = new[] { Art("ghost_" + wrong), Art("ghost_" + right) };
             go.AddComponent<SilhouetteShadow>().shadowMaterial = shadowCaster;
             return SavePrefab<PropInteractable>(go, name);
         }
@@ -253,6 +264,86 @@ namespace Sleight.EditorTools
             player.performFrames = ArtFrames("player_perform", 3);
             player.caughtFrame = Art("player_caught_00");
             return SavePrefab<PlayerController>(go, "P_Player");
+        }
+
+        static Material UnlitMaterial(string name, Color color, bool transparent)
+        {
+            Directory.CreateDirectory(MaterialDir);
+            string path = $"{MaterialDir}/{name}.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            if (transparent)
+            {
+                mat.SetFloat("_Surface", 1f);
+                mat.SetFloat("_Blend", 0f);
+                mat.SetFloat("_ZWrite", 0f);
+                mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+                mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+                mat.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+                mat.SetOverrideTag("RenderType", "Transparent");
+                mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                mat.renderQueue = (int)RenderQueue.Transparent;
+            }
+            mat.SetColor("_BaseColor", color);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        // GDD §0.2：大幕画成半透明深红纱（隔着它看得见幕后），台侧挂一个随时间下坠的沙袋。
+        static Curtain BuildCurtain(Transform stage)
+        {
+            var root = new GameObject("Curtain");
+            root.transform.SetParent(stage, false);
+            var curtain = root.AddComponent<Curtain>();
+
+            var cloth = Box("Cloth", root.transform, new Vector3(5f, 3.1f, -0.7f), new Vector3(10.4f, 4.4f, 0.05f),
+                UnlitMaterial("M_CurtainVeil", new Color(Crimson.r, Crimson.g, Crimson.b, 0.35f), true));
+            var r = cloth.GetComponent<MeshRenderer>();
+            r.receiveShadows = false;
+            r.sortingLayerName = "Light";   // 盖在剪影上面
+            r.sortingOrder = 20;
+            var hem = Box("Hem", cloth.transform, new Vector3(5f, 0.95f, -0.72f), new Vector3(10.4f, 0.12f, 0.05f), LitMaterial("M_Velvet", Crimson));
+            hem.transform.localScale = new Vector3(1f, 0.12f / 4.4f, 1f);
+            hem.transform.localPosition = new Vector3(0f, -0.5f + 0.06f / 4.4f, -0.6f);
+
+            var rope = Box("Rope", root.transform, new Vector3(0.45f, 3.6f, -0.95f), new Vector3(0.02f, 4.0f, 0.02f), LitMaterial("M_FootLine", FootLine));
+            rope.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
+            var bag = Box("Sandbag", root.transform, new Vector3(0.45f, 4.8f, -0.95f), new Vector3(0.22f, 0.3f, 0.12f), LitMaterial("M_Floor", Floor));
+
+            curtain.cloth = cloth.transform;
+            curtain.sandbag = bag.transform;
+            return curtain;
+        }
+
+        // GDD §0.3：搭台段的手，一根细线连到肩膀。
+        static HandController BuildHand(PlayerController player)
+        {
+            var go = new GameObject("Hand");
+            var sprite = Art("player_hand");
+            if (sprite != null) AddSprite(go, sprite, Color.white, "Player", 5);
+            else
+            {
+                AddSprite(go, circleSprite, Silhouette, "Player", 5);
+                go.transform.localScale = new Vector3(0.3f, 0.3f, 1f);
+            }
+            var line = go.AddComponent<LineRenderer>();
+            line.positionCount = 2;
+            line.useWorldSpace = true;
+            line.widthMultiplier = 0.025f;
+            line.sharedMaterial = UnlitMaterial("M_String", Silhouette, false);
+            line.shadowCastingMode = ShadowCastingMode.Off;
+            line.sortingLayerName = "Player";
+            line.sortingOrder = 4;
+            var hand = go.AddComponent<HandController>();
+            hand.player = player;
+            hand.line = line;
+            go.SetActive(false);
+            return hand;
         }
 
         static Material LitMaterial(string name, Color color)
@@ -389,19 +480,30 @@ namespace Sleight.EditorTools
             RenderSettings.ambientLight = Ambient;
             RenderSettings.skybox = null;
 
-            // 灰盒 3D 舞台。玩家和道具站在 z = 0，地板顶面 y = 1.0（§4.2 地面线）。
+            // 3D 舞台（配色跟参考图）。玩家和道具站在 z = 0，地板顶面 y = 1.0（§4.2 地面线）。
             var stage = new GameObject("Stage").transform;
-            Box("Floor", stage, new Vector3(5f, 0.5f, 1.5f), new Vector3(13f, 1f, 5f), LitMaterial("M_Floor", Floor));
-            Box("FootLine", stage, new Vector3(5f, 0.995f, -0.99f), new Vector3(13f, 0.02f, 0.02f), LitMaterial("M_FootLine", FootLine));
-            Box("Divider", stage, new Vector3(5f, 1.001f, 1.5f), new Vector3(0.03f, 0.002f, 5f), LitMaterial("M_Divider", Divider));
-            Box("Backdrop", stage, new Vector3(5f, 3.6f, 4.0f), new Vector3(13f, 6f, 0.2f), LitMaterial("M_Wall", Wall));
-            // 深红丝绒：台口两侧的大幕、后面一层侧幕、顶上的檐幕。
-            var velvet = LitMaterial("M_Velvet", Crimson);
-            Box("Drape_L", stage, new Vector3(-0.05f, 3.0f, -0.8f), new Vector3(0.8f, 4.8f, 0.1f), velvet);
-            Box("Drape_R", stage, new Vector3(10.05f, 3.0f, -0.8f), new Vector3(0.8f, 4.8f, 0.1f), velvet);
-            Box("Wing_L", stage, new Vector3(0.1f, 3.0f, 2.2f), new Vector3(0.9f, 4.6f, 0.1f), velvet);
-            Box("Wing_R", stage, new Vector3(9.9f, 3.0f, 2.2f), new Vector3(0.9f, 4.6f, 0.1f), velvet);
-            Box("Valance", stage, new Vector3(5f, 5.15f, -0.6f), new Vector3(13f, 0.9f, 0.1f), velvet);   // 檐幕，压住布景天顶以上
+            var plankLine = LitMaterial("M_PlankLine", PlankLine);
+            var gold = LitMaterial("M_Gold", Gold);
+            Box("Floor", stage, new Vector3(5f, 0.5f, 1.5f), new Vector3(13f, 1f, 5f), LitMaterial("M_Floor", Plank));
+            for (float x = -1.2f; x <= 11.2f; x += 0.58f)   // 木板缝，顺着进深方向
+                Box("PlankSeam", stage, new Vector3(x, 1.001f, 1.5f), new Vector3(0.025f, 0.002f, 5f), plankLine);
+            Box("StageLip", stage, new Vector3(5f, 0.93f, -1.0f), new Vector3(13f, 0.14f, 0.04f), gold);   // 台口金边
+            Box("Divider", stage, new Vector3(5f, 1.002f, 1.5f), new Vector3(0.03f, 0.002f, 5f), LitMaterial("M_Divider", Divider));
+
+            Box("Backdrop", stage, new Vector3(5f, 3.6f, 4.0f), new Vector3(13f, 6f, 0.2f), LitMaterial("M_Wall", Backdrop));
+            var backdropLine = LitMaterial("M_BackdropLine", BackdropLine);
+            for (float x = -0.9f; x <= 10.9f; x += 0.9f)    // 背板的竖条
+                Box("Panel", stage, new Vector3(x, 3.6f, 3.89f), new Vector3(0.03f, 6f, 0.01f), backdropLine);
+
+            // 深红丝绒：台口两侧的大幕（明暗竖条表现褶皱）、后面一层侧幕、顶上的檐幕和金色横杆。
+            var velvet = LitMaterial("M_Velvet", CurtainLight);
+            var velvetDark = LitMaterial("M_VelvetDark", CurtainDark);
+            Drape("Drape_L", stage, -0.45f, 0.35f, -0.8f, velvet, velvetDark);
+            Drape("Drape_R", stage, 9.65f, 10.45f, -0.8f, velvet, velvetDark);
+            Drape("Wing_L", stage, -0.35f, 0.55f, 2.2f, velvet, velvetDark);
+            Drape("Wing_R", stage, 9.45f, 10.35f, 2.2f, velvet, velvetDark);
+            Box("Valance", stage, new Vector3(5f, 5.2f, -0.6f), new Vector3(13f, 0.8f, 0.1f), LitMaterial("M_Valance", Hex(0x45142A)));
+            Box("ValanceRail", stage, new Vector3(5f, 4.78f, -0.66f), new Vector3(13f, 0.05f, 0.04f), gold);
 
             // 追光：从正上方往下打的圆锥。父物体只沿 x 平移（Spotlight.cs），
             // 子物体一盏朝下的 Spot Light 负责照亮，一个半透明截头圆锥负责画出光柱。
@@ -415,7 +517,7 @@ namespace Sleight.EditorTools
             beamGo.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             var beam = beamGo.AddComponent<Light>();
             beam.type = LightType.Spot;
-            beam.color = SpotYellow;
+            beam.color = Color.Lerp(SpotYellow, new Color(1f, 0.62f, 0.3f), 0.35f);   // 暖一点，接近参考图
             beam.intensity = 220f;
             beam.range = 20f;
             beam.spotAngle = 30f;       // 地面光圈半径 ≈ 2.5，和光柱底面一致
@@ -429,7 +531,7 @@ namespace Sleight.EditorTools
             coneRenderer.shadowCastingMode = ShadowCastingMode.Off;
             coneRenderer.receiveShadows = false;
             coneRenderer.sortingLayerName = "BG";   // 画在剪影后面，剪影保持纯黑
-            coneGo.AddComponent<LightCone>();
+            coneGo.AddComponent<LightCone>().color = ConeColor;
             BuildDust(spotGo.transform);
 
             var spotlight = spotGo.AddComponent<Spotlight>();
@@ -441,6 +543,10 @@ namespace Sleight.EditorTools
             player.name = "Player";
             player.transform.position = new Vector3(0.8f, 1.0f, 0f);
             player.spotlight = spotlight;
+
+            var curtain = BuildCurtain(stage);
+            var hand = BuildHand(player);
+            var preview = new GameObject("PreviewCard").AddComponent<PreviewCard>();
 
             BuildAudience(spotGo.transform);
             BuildPostFx(camData);
@@ -457,6 +563,9 @@ namespace Sleight.EditorTools
             runner.player = player;
             runner.hud = hud;
             runner.propsRoot = props;
+            runner.hand = hand;
+            runner.curtain = curtain;
+            runner.preview = preview;
             runner.propPrefab = propPrefab;
             runner.boxPrefab = EnsureTypedPropPrefab("P_Prop_Box", "box", "prop_box_open", "prop_box_sealed");
             runner.clothPrefab = EnsureTypedPropPrefab("P_Prop_Cloth", "cloth", "prop_cloth_off", "prop_cloth_on");
@@ -469,41 +578,44 @@ namespace Sleight.EditorTools
         }
 
         // 台前观众：一排黑色剪影的后脑勺和肩膀，压在画面底边，比舞台离相机更近。
-        // 前排正中偏右坐着"他"，两只小眼睛反着光，跟着追光转（WatcherEyes）。
+        // 身体和头分开，头绕脖子转，整排人都跟着追光看（AudienceHead）。
         static void BuildAudience(Transform spotlight)
         {
+            const int kindCount = 7;
             var root = new GameObject("Audience").transform;
             var rng = new System.Random(7);
-            var kinds = new Sprite[6];
-            for (int k = 0; k < kinds.Length; k++) kinds[k] = Art($"audience_{k:00}");
-            var watcherSprite = Art("audience_watcher");
-            var eyesSprite = Art("watcher_eyes");
-            bool hasArt = kinds[0] != null && watcherSprite != null;
+            var bodies = new Sprite[kindCount];
+            var heads = new Sprite[kindCount];
+            bool hasArt = true;
+            for (int k = 0; k < kindCount; k++)
+            {
+                bodies[k] = Art($"audience_body_{k:00}");
+                heads[k] = Art($"audience_head_{k:00}");
+                hasArt &= bodies[k] != null && heads[k] != null;
+            }
 
             float x = 0.2f;
             int i = 0;
-            bool watcherPlaced = false;
             while (x < 10.4f)
             {
                 var person = new GameObject($"Seat{++i}").transform;
                 person.SetParent(root, false);
-                bool isWatcher = !watcherPlaced && x > 5.4f;
 
                 if (hasArt)
                 {
                     person.position = new Vector3(x, -0.05f - 0.12f * (float)rng.NextDouble(), -2f);
-                    var sprite = isWatcher ? watcherSprite : kinds[rng.Next(kinds.Length)];
-                    var sr = AddSprite(person.gameObject, sprite, Color.white, "Audience", 0);
-                    sr.flipX = rng.Next(2) == 0;
-                    if (isWatcher && eyesSprite != null)
-                    {
-                        person.name = "Watcher";
-                        var eyes = new GameObject("Eyes");
-                        eyes.transform.SetParent(person, false);
-                        eyes.transform.localPosition = new Vector3(0f, (96f - 44f) / 64f, 0f);
-                        AddSprite(eyes, eyesSprite, Color.white, "Audience", 2);
-                        eyes.AddComponent<WatcherEyes>().spotlight = spotlight;
-                    }
+                    int kind = rng.Next(kindCount);
+                    bool flip = rng.Next(2) == 0;
+                    AddSprite(person.gameObject, bodies[kind], Color.white, "Audience", 0).flipX = flip;
+
+                    var head = new GameObject("Head");
+                    head.transform.SetParent(person, false);
+                    head.transform.localPosition = new Vector3(0f, 1.5f * (1f - 60f / 96f), 0f);   // 脖子那一行
+                    AddSprite(head, heads[kind], Color.white, "Audience", 1).flipX = flip;
+                    var look = head.AddComponent<AudienceHead>();
+                    look.spotlight = spotlight;
+                    look.follow = 1.5f + 3f * (float)rng.NextDouble();
+                    look.degPerUnit = 3f + 2f * (float)rng.NextDouble();
                 }
                 else
                 {
@@ -525,7 +637,6 @@ namespace Sleight.EditorTools
                     AddSprite(head, circleSprite, Silhouette, "Audience", 1);
                 }
 
-                watcherPlaced |= isWatcher;
                 x += 0.95f + 0.35f * (float)rng.NextDouble();
             }
         }
@@ -581,7 +692,7 @@ namespace Sleight.EditorTools
             vignette.intensity.Override(0.3f);
             vignette.smoothness.Override(0.45f);
             var color = profile.Add<ColorAdjustments>(true);
-            color.saturation.Override(-15f);
+            color.saturation.Override(-5f);
             color.colorFilter.Override(new Color(1f, 0.95f, 0.88f));
             var bloom = profile.Add<Bloom>(true);
             bloom.intensity.Override(0.35f);
@@ -687,6 +798,20 @@ namespace Sleight.EditorTools
             img.color = color;
             img.raycastTarget = false;
             return img;
+        }
+
+        // 一片幕布：明暗相间的竖条，看起来是褶皱。
+        static void Drape(string name, Transform parent, float x0, float x1, float z, Material light, Material dark)
+        {
+            var root = new GameObject(name).transform;
+            root.SetParent(parent, false);
+            const float fold = 0.16f;
+            int i = 0;
+            for (float x = x0; x < x1 - 0.001f; x += fold, i++)
+            {
+                float w = Mathf.Min(fold, x1 - x);
+                Box("Fold", root, new Vector3(x + w / 2f, 3.0f, z + (i % 2 == 0 ? 0f : 0.03f)), new Vector3(w, 4.8f, 0.08f), i % 2 == 0 ? light : dark);
+            }
         }
 
         static GameObject Box(string name, Transform parent, Vector3 center, Vector3 size, Material mat)

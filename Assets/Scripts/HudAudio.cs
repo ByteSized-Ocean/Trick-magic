@@ -19,6 +19,7 @@ namespace Sleight
         public AudioClip sfxBell;
         public AudioClip sfxReveal;
         public AudioClip sfxBlocked;
+        public AudioClip sfxSnap;        // 道具吸附到槽位的轻"咔"（GDD §0.3）
 
         static readonly Color UiWhite = new Color32(0xD0, 0xD0, 0xD6, 0xFF);
         static readonly Color UiHollow = new Color32(0xD0, 0xD0, 0xD6, 0x40);   // TODO: 换成 1px 描边空心圆
@@ -58,6 +59,7 @@ namespace Sleight
 
         public void PlayBell() => PlayOneShot(sfxBell);
         public void PlayReveal() => PlayOneShot(sfxReveal);
+        public void PlaySnap() => PlayOneShot(sfxSnap);
 
         public void PlayBlocked()
         {

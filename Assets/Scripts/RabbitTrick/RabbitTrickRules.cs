@@ -39,7 +39,7 @@ namespace Sleight.RabbitTrick
             if (Failed || Step != TrickStep.HideRabbit || !fullyOpen || RabbitInside) return false;
             if (rabbitLit || openingLit)
             {
-                Expose("观众看见你把兔子放进箱子了");
+                Expose("The audience saw you slip the rabbit into the box.");
                 return false;
             }
             RabbitInside = true;
@@ -67,7 +67,7 @@ namespace Sleight.RabbitTrick
             // Once it has been secretly loaded AND closed, opening it is the advertised trick.
             if (RabbitInside && Step == TrickStep.RevealRabbit) return;
             if (rabbitLit && (!RabbitInside || lidOpen))
-                Expose(RabbitInside ? "箱盖没关好，藏兔子的动作被看见了" : "手中的兔子被追光照到了");
+                Expose(RabbitInside ? "The lid was open: they saw the rabbit hidden inside." : "The spotlight caught the rabbit in your hand.");
         }
 
         public void Expose(string reason)

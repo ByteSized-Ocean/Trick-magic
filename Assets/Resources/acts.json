@@ -11,7 +11,8 @@
           "slot": "B.box",
           "type": "box",
           "initial": "open",
-          "target": "sealed"
+          "target": "sealed",
+          "startX": 0.6
         }
       ],
       "requireAssistant": false,
@@ -26,7 +27,9 @@
       ],
       "actTimeLimit": 45,
       "isEnding": false,
-      "designNote": "教学：光在 A 时，B 区随便动。只要求一个动作，让玩家学会'光 = 禁手'。"
+      "designNote": "教学：光在 A 时，B 区随便动。只要求一个动作，让玩家学会'光 = 禁手'。",
+      "setupTime": 35,
+      "decoys": []
     },
     {
       "actId": "L1A2",
@@ -39,13 +42,15 @@
           "slot": "A.cloth",
           "type": "cloth",
           "initial": "off",
-          "target": "on"
+          "target": "on",
+          "startX": 8.8
         },
         {
           "slot": "A.box",
           "type": "box",
           "initial": "open",
-          "target": "sealed"
+          "target": "sealed",
+          "startX": 9.6
         }
       ],
       "requireAssistant": false,
@@ -60,7 +65,9 @@
       ],
       "actTimeLimit": 45,
       "isEnding": false,
-      "designNote": "盖住：两个动作要占两段暗窗"
+      "designNote": "盖住：两个动作要占两段暗窗",
+      "setupTime": 35,
+      "decoys": []
     },
     {
       "actId": "L1A3",
@@ -73,13 +80,15 @@
           "slot": "B.mirror",
           "type": "mirror",
           "initial": "normal",
-          "target": "flipped"
+          "target": "flipped",
+          "startX": 0.6
         },
         {
           "slot": "B.box",
           "type": "box",
           "initial": "open",
-          "target": "sealed"
+          "target": "sealed",
+          "startX": 1.0
         }
       ],
       "requireAssistant": true,
@@ -94,7 +103,9 @@
       ],
       "actTimeLimit": 45,
       "isEnding": false,
-      "designNote": "镜子：首次引入'人也要站到位'"
+      "designNote": "镜子：首次引入'人也要站到位'",
+      "setupTime": 35,
+      "decoys": []
     },
     {
       "actId": "L2A1",
@@ -107,13 +118,15 @@
           "slot": "A.box",
           "type": "box",
           "initial": "open",
-          "target": "sealed"
+          "target": "sealed",
+          "startX": 8.8
         },
         {
           "slot": "A.cloth",
           "type": "cloth",
           "initial": "off",
-          "target": "on"
+          "target": "on",
+          "startX": 9.6
         }
       ],
       "requireAssistant": false,
@@ -128,7 +141,17 @@
       ],
       "actTimeLimit": 45,
       "isEnding": false,
-      "designNote": "他在看别处：窗口变短，练习'分两个窗口做完'"
+      "designNote": "他在看别处：窗口变短，练习'分两个窗口做完'",
+      "setupTime": 35,
+      "decoys": [
+        {
+          "slot": "",
+          "type": "mirror",
+          "initial": "normal",
+          "target": "normal",
+          "startX": 5.0
+        }
+      ]
     },
     {
       "actId": "L2A2",
@@ -141,7 +164,8 @@
           "slot": "B.mirror",
           "type": "mirror",
           "initial": "normal",
-          "target": "flipped"
+          "target": "flipped",
+          "startX": 0.6
         }
       ],
       "requireAssistant": true,
@@ -156,7 +180,17 @@
       ],
       "actTimeLimit": 45,
       "isEnding": false,
-      "designNote": "人不在也算错：只一件事，但两个条件同时成立"
+      "designNote": "人不在也算错：只一件事，但两个条件同时成立",
+      "setupTime": 35,
+      "decoys": [
+        {
+          "slot": "",
+          "type": "box",
+          "initial": "open",
+          "target": "open",
+          "startX": 1.0
+        }
+      ]
     },
     {
       "actId": "L2A3",
@@ -169,19 +203,22 @@
           "slot": "A.box",
           "type": "box",
           "initial": "open",
-          "target": "sealed"
+          "target": "sealed",
+          "startX": 8.8
         },
         {
           "slot": "A.cloth",
           "type": "cloth",
           "initial": "off",
-          "target": "on"
+          "target": "on",
+          "startX": 9.6
         },
         {
           "slot": "A.mirror",
           "type": "mirror",
           "initial": "normal",
-          "target": "flipped"
+          "target": "flipped",
+          "startX": 5.0
         }
       ],
       "requireAssistant": false,
@@ -196,7 +233,17 @@
       ],
       "actTimeLimit": 45,
       "isEnding": false,
-      "designNote": "三件一起：第一个真正要'排期'的幕"
+      "designNote": "三件一起：第一个真正要'排期'的幕",
+      "setupTime": 35,
+      "decoys": [
+        {
+          "slot": "",
+          "type": "cloth",
+          "initial": "off",
+          "target": "off",
+          "startX": 1.0
+        }
+      ]
     },
     {
       "actId": "L3A1",
@@ -209,13 +256,15 @@
           "slot": "B.box",
           "type": "box",
           "initial": "open",
-          "target": "sealed"
+          "target": "sealed",
+          "startX": 0.6
         },
         {
           "slot": "B.mirror",
           "type": "mirror",
           "initial": "normal",
-          "target": "flipped"
+          "target": "flipped",
+          "startX": 1.0
         }
       ],
       "requireAssistant": false,
@@ -230,7 +279,17 @@
       ],
       "actTimeLimit": 45,
       "isEnding": false,
-      "designNote": "快：窗口逼近下限，要求贴准 T-1.5"
+      "designNote": "快：窗口逼近下限，要求贴准 T-1.5",
+      "setupTime": 40,
+      "decoys": [
+        {
+          "slot": "",
+          "type": "cloth",
+          "initial": "off",
+          "target": "off",
+          "startX": 5.0
+        }
+      ]
     },
     {
       "actId": "L3A2",
@@ -243,19 +302,22 @@
           "slot": "A.cloth",
           "type": "cloth",
           "initial": "off",
-          "target": "on"
+          "target": "on",
+          "startX": 8.8
         },
         {
           "slot": "A.box",
           "type": "box",
           "initial": "open",
-          "target": "sealed"
+          "target": "sealed",
+          "startX": 9.6
         },
         {
           "slot": "A.mirror",
           "type": "mirror",
           "initial": "normal",
-          "target": "flipped"
+          "target": "flipped",
+          "startX": 5.0
         }
       ],
       "requireAssistant": true,
@@ -270,7 +332,17 @@
       ],
       "actTimeLimit": 45,
       "isEnding": false,
-      "designNote": "两边都有人在看：三个道具 + 站位，全游戏最挤的一幕"
+      "designNote": "两边都有人在看：三个道具 + 站位，全游戏最挤的一幕",
+      "setupTime": 40,
+      "decoys": [
+        {
+          "slot": "",
+          "type": "box",
+          "initial": "open",
+          "target": "open",
+          "startX": 0.6
+        }
+      ]
     },
     {
       "actId": "L3A3",
@@ -283,19 +355,22 @@
           "slot": "B.box",
           "type": "box",
           "initial": "open",
-          "target": "sealed"
+          "target": "sealed",
+          "startX": 0.6
         },
         {
           "slot": "B.cloth",
           "type": "cloth",
           "initial": "off",
-          "target": "on"
+          "target": "on",
+          "startX": 1.0
         },
         {
           "slot": "B.mirror",
           "type": "mirror",
           "initial": "normal",
-          "target": "flipped"
+          "target": "flipped",
+          "startX": 5.0
         }
       ],
       "requireAssistant": true,
@@ -310,7 +385,17 @@
       ],
       "actTimeLimit": 45,
       "isEnding": false,
-      "designNote": "最后一场：全部机制叠满，通关"
+      "designNote": "最后一场：全部机制叠满，通关",
+      "setupTime": 40,
+      "decoys": [
+        {
+          "slot": "",
+          "type": "mirror",
+          "initial": "normal",
+          "target": "normal",
+          "startX": 9.6
+        }
+      ]
     },
     {
       "actId": "LEND",
@@ -323,7 +408,9 @@
       "lights": [],
       "actTimeLimit": 0,
       "isEnding": true,
-      "designNote": "结局：不接受输入，进场 2.0s → 停 3.0s → 眼睛消失 → 淡出 1.0s → 标题"
+      "designNote": "结局：不接受输入，进场 2.0s → 停 3.0s → 眼睛消失 → 淡出 1.0s → 标题",
+      "setupTime": 0,
+      "decoys": []
     }
   ]
 }

@@ -28,6 +28,7 @@ namespace Sleight
         PresentMissing,       // F2
         SuspicionFull,        // F3
         Timeout,              // F4
+        SetupIncomplete,      // F5（GDD §0.7）：开幕时道具没摆到位
     }
 
     public struct Verdict
