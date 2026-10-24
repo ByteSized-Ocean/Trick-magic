@@ -13,6 +13,7 @@ namespace Sleight
         public float presentWindow = 1.5f;
         public float earlyPenaltyPerSec = 25f;
         public float failDuration = 1.0f;
+        public bool resetOnFail = false;   // true = GDD §12.2 的露馅重开；团队决定先关掉
 
         public GameFlow flow;
         public Spotlight spotlight;
@@ -25,6 +26,7 @@ namespace Sleight
         ActState state;
         readonly List<PropInteractable> props = new List<PropInteractable>();
         bool locked;
+        bool timedOut;
 
         void OnEnable()
         {
@@ -33,6 +35,7 @@ namespace Sleight
             player.PerformCompleted += OnPerformCompleted;
             player.InteractCompleted += OnInteractCompleted;
             player.Blocked += hud.PlayBlocked;
+            player.Blocked += player.FlashBlocked;
         }
 
         void OnDisable()
@@ -42,6 +45,7 @@ namespace Sleight
             player.PerformCompleted -= OnPerformCompleted;
             player.InteractCompleted -= OnInteractCompleted;
             player.Blocked -= hud.PlayBlocked;
+            player.Blocked -= player.FlashBlocked;
         }
 
         public void Begin(ActData d)
@@ -49,6 +53,7 @@ namespace Sleight
             StopAllCoroutines();
             data = d;
             locked = false;
+            timedOut = false;
             state = new ActState();
 
             foreach (var p in props) Destroy(p.gameObject);
@@ -80,7 +85,11 @@ namespace Sleight
             spotlight.Tick(dt);                    // 3. 推进时间轴，落定时发 LightSettled
 
             state.time = spotlight.ActTime;        // 4. 幕计时
-            if (state.time >= data.actTimeLimit) Fail(FailReason.Timeout);
+            if (!timedOut && state.time >= data.actTimeLimit)
+            {
+                timedOut = true;
+                Fail(FailReason.Timeout);
+            }
 
             spotlight.SetSuspicion(state.suspicion);   // 5. 反馈
             hud.SetHeartbeat(state.suspicion);
@@ -136,8 +145,15 @@ namespace Sleight
         public void Fail(FailReason reason)
         {
             if (locked) return;
-            locked = true;
             Debug.Log($"[ActRunner] {data.actId} 露馅：{reason}");
+            if (!resetOnFail)
+            {
+                // 灯光和玩家各走各的：判定没过只清掉本次呈现和怀疑度，不重开、不拉回出生点。
+                state.armed = false;
+                state.suspicion = 0f;
+                return;
+            }
+            locked = true;
             StartCoroutine(PlayFail());
         }
 

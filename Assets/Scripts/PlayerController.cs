@@ -59,6 +59,23 @@ namespace Sleight
 
         public void SetCaught() => State = PlayerState.Caught;
 
+        // 光下按键的灰闪 0.1s（§8.2）。
+        public void FlashBlocked()
+        {
+            var sr = GetComponent<SpriteRenderer>();
+            if (sr == null) return;
+            StopAllCoroutines();
+            StartCoroutine(Flash(sr));
+        }
+
+        System.Collections.IEnumerator Flash(SpriteRenderer sr)
+        {
+            var original = sr.color;
+            sr.color = new Color(0.45f, 0.45f, 0.48f, original.a);
+            yield return new WaitForSeconds(0.1f);
+            sr.color = original;
+        }
+
         public void Tick(float dt, float now)
         {
             if (State == PlayerState.Caught) return;

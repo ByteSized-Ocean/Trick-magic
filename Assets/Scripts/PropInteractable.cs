@@ -18,10 +18,12 @@ namespace Sleight
         public float InteractDuration => type == "cloth" ? 0.5f : 0.6f;
 
         SpriteRenderer sr;
+        Vector3 baseScale;
 
         void Awake()
         {
             sr = GetComponent<SpriteRenderer>();
+            baseScale = transform.localScale;
         }
 
         public void Init(PropSpec spec)
@@ -60,7 +62,13 @@ namespace Sleight
         {
             if (sr == null) sr = GetComponent<SpriteRenderer>();
             var sprite = stateSprites != null && stateSprites.Length == 2 ? stateSprites[IsSecondState(State) ? 1 : 0] : null;
-            if (sprite != null) sr.sprite = sprite;
+            if (sprite != null)
+            {
+                sr.sprite = sprite;
+                return;
+            }
+            // 占位：没有正式图时用高度区分状态，正确态矮一截。
+            transform.localScale = new Vector3(baseScale.x, baseScale.y * (IsSecondState(State) ? 0.5f : 1f), baseScale.z);
         }
     }
 }
