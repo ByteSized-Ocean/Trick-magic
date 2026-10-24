@@ -469,41 +469,44 @@ namespace Sleight.EditorTools
         }
 
         // 台前观众：一排黑色剪影的后脑勺和肩膀，压在画面底边，比舞台离相机更近。
-        // 前排正中偏右坐着"他"，两只小眼睛反着光，跟着追光转（WatcherEyes）。
+        // 身体和头分开，头绕脖子转，整排人都跟着追光看（AudienceHead）。
         static void BuildAudience(Transform spotlight)
         {
+            const int kindCount = 7;
             var root = new GameObject("Audience").transform;
             var rng = new System.Random(7);
-            var kinds = new Sprite[6];
-            for (int k = 0; k < kinds.Length; k++) kinds[k] = Art($"audience_{k:00}");
-            var watcherSprite = Art("audience_watcher");
-            var eyesSprite = Art("watcher_eyes");
-            bool hasArt = kinds[0] != null && watcherSprite != null;
+            var bodies = new Sprite[kindCount];
+            var heads = new Sprite[kindCount];
+            bool hasArt = true;
+            for (int k = 0; k < kindCount; k++)
+            {
+                bodies[k] = Art($"audience_body_{k:00}");
+                heads[k] = Art($"audience_head_{k:00}");
+                hasArt &= bodies[k] != null && heads[k] != null;
+            }
 
             float x = 0.2f;
             int i = 0;
-            bool watcherPlaced = false;
             while (x < 10.4f)
             {
                 var person = new GameObject($"Seat{++i}").transform;
                 person.SetParent(root, false);
-                bool isWatcher = !watcherPlaced && x > 5.4f;
 
                 if (hasArt)
                 {
                     person.position = new Vector3(x, -0.05f - 0.12f * (float)rng.NextDouble(), -2f);
-                    var sprite = isWatcher ? watcherSprite : kinds[rng.Next(kinds.Length)];
-                    var sr = AddSprite(person.gameObject, sprite, Color.white, "Audience", 0);
-                    sr.flipX = rng.Next(2) == 0;
-                    if (isWatcher && eyesSprite != null)
-                    {
-                        person.name = "Watcher";
-                        var eyes = new GameObject("Eyes");
-                        eyes.transform.SetParent(person, false);
-                        eyes.transform.localPosition = new Vector3(0f, (96f - 44f) / 64f, 0f);
-                        AddSprite(eyes, eyesSprite, Color.white, "Audience", 2);
-                        eyes.AddComponent<WatcherEyes>().spotlight = spotlight;
-                    }
+                    int kind = rng.Next(kindCount);
+                    bool flip = rng.Next(2) == 0;
+                    AddSprite(person.gameObject, bodies[kind], Color.white, "Audience", 0).flipX = flip;
+
+                    var head = new GameObject("Head");
+                    head.transform.SetParent(person, false);
+                    head.transform.localPosition = new Vector3(0f, 1.5f * (1f - 60f / 96f), 0f);   // 脖子那一行
+                    AddSprite(head, heads[kind], Color.white, "Audience", 1).flipX = flip;
+                    var look = head.AddComponent<AudienceHead>();
+                    look.spotlight = spotlight;
+                    look.follow = 1.5f + 3f * (float)rng.NextDouble();
+                    look.degPerUnit = 3f + 2f * (float)rng.NextDouble();
                 }
                 else
                 {
@@ -525,7 +528,6 @@ namespace Sleight.EditorTools
                     AddSprite(head, circleSprite, Silhouette, "Audience", 1);
                 }
 
-                watcherPlaced |= isWatcher;
                 x += 0.95f + 0.35f * (float)rng.NextDouble();
             }
         }

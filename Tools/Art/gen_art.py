@@ -320,50 +320,39 @@ def marker_assist():
 
 # ---------------------------------------------------------------- 观众（台前一排后脑勺）
 
+AUDIENCE_KINDS = 7
+NECK_Y = 60   # 头与身体的分界（画布像素，自上而下）；头图的 pivot 就在这一行（导入规则里的 0.375）
+
+
 def audience(kind):
-    c = Canvas(80, 96)
+    """台前一排后脑勺。身体和头分成两张同尺寸的图，头绕脖子转，跟着追光看（AudienceHead）。"""
+    body, head = Canvas(80, 96), Canvas(80, 96)
     rnd = random.Random(kind * 31 + 5)
     shoulders = 26 + rnd.randint(-3, 4)
-    c.ellipse((40 - shoulders, 58, 40 + shoulders, 130))
+    body.ellipse((40 - shoulders, 58, 40 + shoulders, 130))
+    body.rect((34, NECK_Y - 4, 46, 66))           # 脖子
     head_r = 14 + rnd.randint(-2, 2)
-    hy = 46
-    c.ellipse((40 - head_r, hy - head_r, 40 + head_r, hy + head_r + 2))
-    c.rect((34, hy + head_r - 2, 46, 64))         # 脖子
+    hy = NECK_Y - head_r - 1
+    head.ellipse((40 - head_r, hy - head_r, 40 + head_r, hy + head_r + 2))
     if kind == 0:                                 # 圆顶礼帽
-        c.ellipse((40 - head_r - 6, hy - 10, 40 + head_r + 6, hy - 4))
-        c.ellipse((40 - head_r + 1, hy - head_r - 12, 40 + head_r - 1, hy - 2))
+        head.ellipse((40 - head_r - 6, hy - 10, 40 + head_r + 6, hy - 4))
+        head.ellipse((40 - head_r + 1, hy - head_r - 12, 40 + head_r - 1, hy - 2))
     elif kind == 1:                               # 盘发
-        c.ellipse((30, hy - head_r - 10, 50, hy - head_r + 6))
+        head.ellipse((30, hy - head_r - 10, 50, hy - head_r + 6))
     elif kind == 2:                               # 鸭舌帽
-        c.ellipse((40 - head_r - 1, hy - head_r - 3, 40 + head_r + 1, hy + 2))
-        c.poly([(40 + head_r - 4, hy - 4), (40 + head_r + 10, hy - 1), (40 + head_r - 2, hy + 1)])
+        head.ellipse((40 - head_r - 1, hy - head_r - 3, 40 + head_r + 1, hy + 2))
+        head.poly([(40 + head_r - 4, hy - 4), (40 + head_r + 10, hy - 1), (40 + head_r - 2, hy + 1)])
     elif kind == 3:                               # 带羽毛的女帽
-        c.ellipse((40 - head_r - 8, hy - 8, 40 + head_r + 8, hy - 1))
-        c.poly([(46, hy - 8), (64, hy - 34), (56, hy - 8)])
+        head.ellipse((40 - head_r - 8, hy - 8, 40 + head_r + 8, hy - 1))
+        head.poly([(46, hy - 8), (64, hy - 34), (56, hy - 8)])
     elif kind == 4:                               # 秃顶，两只大耳朵
-        c.ellipse((40 - head_r - 4, hy - 3, 40 - head_r + 4, hy + 8))
-        c.ellipse((40 + head_r - 4, hy - 3, 40 + head_r + 4, hy + 8))
+        head.ellipse((40 - head_r - 4, hy - 3, 40 - head_r + 4, hy + 8))
+        head.ellipse((40 + head_r - 4, hy - 3, 40 + head_r + 4, hy + 8))
+    elif kind == 6:                               # 宽檐软呢帽
+        head.ellipse((40 - head_r - 8, hy - 6, 40 + head_r + 8, hy + 2))
+        head.ellipse((40 - head_r + 2, hy - head_r - 12, 40 + head_r - 2, hy - 2))
     # kind 5：什么也不戴
-    return c.render(rim=False, seed=40 + kind)
-
-
-def watcher():
-    """前排的"他"：同样是后脑勺，略微侧过头。两只眼睛是单独一张图（watcher_eyes），可以跟着追光转。"""
-    c = Canvas(80, 96)
-    c.ellipse((10, 58, 70, 130))
-    c.ellipse((25, 30, 55, 62))
-    c.rect((34, 58, 46, 66))
-    c.ellipse((18, 26, 62, 34))                   # 宽檐软呢帽
-    c.ellipse((27, 12, 53, 30))
-    return c.render(rim=False, seed=99)
-
-
-def watcher_eyes():
-    img = Image.new("RGBA", (16, 6), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.ellipse((1, 1, 4, 4), fill=AGED_PAPER + (255,))
-    d.ellipse((10, 1, 13, 4), fill=AGED_PAPER + (255,))
-    return img
+    return body.render(rim=False, seed=40 + kind), head.render(rim=False, seed=60 + kind)
 
 
 # ---------------------------------------------------------------- 特效 / 标题
@@ -420,10 +409,10 @@ def main():
     save(mirror(False), "prop_mirror_normal")
     save(mirror(True), "prop_mirror_flipped")
     save(marker_assist(), "prop_marker_assist")
-    for k in range(6):
-        save(audience(k), f"audience_{k:02d}")
-    save(watcher(), "audience_watcher")
-    save(watcher_eyes(), "watcher_eyes")
+    for k in range(AUDIENCE_KINDS):
+        body, head = audience(k)
+        save(body, f"audience_body_{k:02d}")
+        save(head, f"audience_head_{k:02d}")
     save(eye_flash(), "eye_flash")
     save(title_card(), "title_card")
 

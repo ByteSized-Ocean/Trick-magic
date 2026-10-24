@@ -7,7 +7,7 @@ namespace Sleight.EditorTools
     public class SpriteImportRules : AssetPostprocessor
     {
         // 改了规则就加 1，Unity 会按新规则重新导入已有的图。
-        public override uint GetVersion() => 2;
+        public override uint GetVersion() => 3;
 
         void OnPreprocessTexture()
         {
@@ -24,7 +24,17 @@ namespace Sleight.EditorTools
             var settings = new TextureImporterSettings();
             ti.ReadTextureSettings(settings);
             settings.spriteMeshType = SpriteMeshType.FullRect;
-            settings.spriteAlignment = (int)PivotFor(System.IO.Path.GetFileName(assetPath));
+            string file = System.IO.Path.GetFileName(assetPath);
+            if (file.StartsWith("audience_head_"))
+            {
+                // 观众的头绕脖子转：pivot 在 gen_art.py 的 NECK_Y（自上而下第 60/96 行）。
+                settings.spriteAlignment = (int)SpriteAlignment.Custom;
+                settings.spritePivot = new Vector2(0.5f, 1f - 60f / 96f);
+            }
+            else
+            {
+                settings.spriteAlignment = (int)PivotFor(file);
+            }
             ti.SetTextureSettings(settings);
         }
 
