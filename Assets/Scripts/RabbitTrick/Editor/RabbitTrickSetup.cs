@@ -31,6 +31,7 @@ namespace Sleight.RabbitTrick.EditorTools
             if (shader == null) throw new InvalidOperationException("Rabbit Stage shader was not imported.");
             var stage = Material("Stage", shader, 0, 0);
             var magician = Material("Magician", shader, 1, 0);
+            magician.SetFloat("_HideLegs", 1f);
             var overlay = Material("Overlay", shader, 0, 1);
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var cameraGo = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
@@ -48,6 +49,9 @@ namespace Sleight.RabbitTrick.EditorTools
             var light = root.AddComponent<RandomAudienceLight>();
             var hands = root.AddComponent<DualHandController>();
             var audio = root.AddComponent<AudioSource>();
+            var curtains = root.AddComponent<StageCurtains>();
+            game.Curtains = curtains;
+            view.curtains = curtains;
             audio.playOnAwake = false;
             game.view = view;
             game.Audience = light;
@@ -61,6 +65,13 @@ namespace Sleight.RabbitTrick.EditorTools
             view.audienceArt = new Sprite[6];
             for (int i = 0; i < view.audienceArt.Length; i++)
                 view.audienceArt[i] = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/Art/Sprites/audience_{i:00}.png");
+            view.audienceBodies = new Sprite[7];
+            view.audienceHeads = new Sprite[7];
+            for (int i = 0; i < 7; i++)
+            {
+                view.audienceBodies[i] = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/Art/Sprites/audience_body_{i:00}.png");
+                view.audienceHeads[i] = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/Art/Sprites/audience_head_{i:00}.png");
+            }
             view.stageMaterial = stage;
             view.magicianMaterial = magician;
             view.overlayMaterial = overlay;

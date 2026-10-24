@@ -7,6 +7,7 @@ Shader "Sleight/Rabbit Stage"
         _Magician ("Colour magician silhouette", Float) = 0
         _Unlit ("Ignore spotlight", Float) = 0
         _UseSpriteColor ("Use SpriteRenderer tint", Float) = 1
+        _HideLegs ("Hide silhouette legs (drawn separately)", Float) = 0
         [HideInInspector] _RendererColor ("Renderer color", Color) = (1,1,1,1)
     }
     SubShader
@@ -27,6 +28,7 @@ Shader "Sleight/Rabbit Stage"
                 float _Magician;
                 float _Unlit;
                 float _UseSpriteColor;
+                float _HideLegs;
             CBUFFER_END
             float4 _RabbitSpot;
             float _RabbitSpotTopRadius;
@@ -54,6 +56,7 @@ Shader "Sleight/Rabbit Stage"
                 if (_Magician > 0.5)
                 {
                     if (input.uv.y > 0.32 && input.uv.y < 0.72 && abs(input.uv.x - 0.5) > 0.18) tex.a = 0;
+                    if (_HideLegs > 0.5 && input.uv.y < 0.34) tex.a = 0;   // 腿由 RabbitStageView 单独画，走路会动
                     half3 fabric = half3(0.43, 0.16, 0.36);
                     if (input.uv.y < 0.34) fabric = half3(0.13, 0.17, 0.26);
                     else if (input.uv.y > 0.86) fabric = half3(0.17, 0.12, 0.27);

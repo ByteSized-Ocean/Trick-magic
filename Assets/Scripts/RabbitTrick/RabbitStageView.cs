@@ -9,6 +9,9 @@ namespace Sleight.RabbitTrick
         public Sprite circle;
         public Sprite magicianArt;
         public Sprite[] audienceArt;
+        public Sprite[] audienceBodies;   // 观众背影：身体和头分开，头绕脖子转（gen_art.py）
+        public Sprite[] audienceHeads;
+        public StageCurtains curtains;
         public Material stageMaterial;
         public Material magicianMaterial;
         public Material overlayMaterial;
@@ -32,7 +35,15 @@ namespace Sleight.RabbitTrick
         [SerializeField] GameObject resultPanel;
         [SerializeField] Text resultTitle, resultBody;
         [SerializeField] Text controls;
+        [SerializeField] LineRenderer[] legs = new LineRenderer[2];
+        [SerializeField] Transform[] shoes = new Transform[2];
+        [SerializeField] Transform[] audienceHeadPivots = new Transform[0];
+        [SerializeField] float[] audienceFollow = new float[0];
         Font runtimeFont;
+        Vector2 lastBody;
+        float walkPhase, walkBlend;
+        bool facingLeft, hasLastBody;
+        const float HipHeight = 0.78f, Thigh = 0.41f, Shin = 0.41f, Stride = 0.62f;
         readonly Color cream = new Color32(242, 222, 188, 255);
         readonly Color teal = new Color32(100, 220, 199, 255);
         readonly Color gold = new Color32(210, 156, 79, 255);
@@ -54,12 +65,21 @@ namespace Sleight.RabbitTrick
                         new Vector2(0.25f, 4.7f), fold % 2 == 0 ? Hex(0x772A43) : Hex(0x562034), 2);
             Rect("Valance", world, new Vector2(5, 5.35f), new Vector2(10, 0.55f), Hex(0x6F2841), 2);
             Rect("ValanceTrim", world, new Vector2(5, 5.07f), new Vector2(10, 0.045f), gold, 3);
+            BuildScenery();
 
             var magicianSprite = Sprite("Magician", world, magicianArt, new Vector2(3.85f, 1.18f), new Vector2(1.4f, 2.3f), Color.white, 10);
             // Original art is bottom-pivoted; place the feet on the boards.
             magicianSprite.transform.position = new Vector3(3.85f, 1.18f, -0.2f);
             magicianSprite.sharedMaterial = magicianMaterial;
             magician = magicianSprite.transform;
+            // 腿单独画（材质里 _HideLegs 把剪影原来的腿藏掉），走路时迈步、屈膝、抬脚。
+            for (int i = 0; i < 2; i++)
+            {
+                legs[i] = Line(i == 0 ? "BackLeg" : "FrontLeg", world, 0.12f, i == 0 ? Hex(0x1A2133) : Hex(0x222B42), 9, 3);
+                legs[i].numCapVertices = 3;
+                legs[i].numCornerVertices = 3;
+                shoes[i] = Rect("Shoe", world, Vector2.zero, new Vector2(0.24f, 0.075f), Hex(0x15131C), 10).transform;
+            }
             for (int i = 0; i < 2; i++)
             {
                 arms[i] = Line("Sleeve", world, 0.11f, Hex(0x925576), 12, 3);
@@ -123,13 +143,104 @@ namespace Sleight.RabbitTrick
             beamLine.SetPosition(0, new Vector3(0, 5.8f, 0));
             beamLine.SetPosition(1, new Vector3(0, 0.85f, 0));
             pool = Disc("LightPool", world, new Vector2(5.85f, 1.05f), new Vector2(2.95f, 0.4f), new Color(1f, 0.8f, 0.4f, 0.16f), 2, true);
-            for (int i = 0; i < 11; i++)
-            {
-                Sprite art = audienceArt != null && audienceArt.Length > 0 ? audienceArt[i % audienceArt.Length] : circle;
-                var spectator = Sprite("Audience", world, art, new Vector2(0.4f + i * 0.92f, -0.04f), new Vector2(0.8f, 0.67f), Hex(0x33263C), 45);
-                spectator.sharedMaterial = overlayMaterial;
-            }
+            BuildAudience();
+            BuildCurtains();
             BuildHud();
+        }
+
+        // 背景细节：彩绘天幕（月亮、远山、星星）、护墙板、两盏壁灯、檐幕的扇形垂边和流苏、
+        // 幕布的金色绑带、台口一排脚灯、地板前亮后暗。都只是画面，不参与判定。
+        void BuildScenery()
+        {
+            Rect("Wainscot", world, new Vector2(5, 1.95f), new Vector2(10, 0.55f), Hex(0x3A3045), -28);
+            Rect("WainscotTrim", world, new Vector2(5, 2.24f), new Vector2(10, 0.03f), Hex(0x8A6A4A), -27);
+            Disc("PaintedMoon", world, new Vector2(7.2f, 4.35f), new Vector2(0.75f, 0.75f), Hex(0x6E6280), -28);
+            Disc("MoonShade", world, new Vector2(7.36f, 4.42f), new Vector2(0.62f, 0.62f), Hex(0x453C50), -27);
+            float[] hills = { 0.4f, 1.9f, 3.3f, 4.6f, 6.2f, 7.8f, 9.4f };
+            for (int i = 0; i < hills.Length; i++)
+                Disc("PaintedHill", world, new Vector2(hills[i], 2.3f), new Vector2(2.2f + (i % 3) * 0.5f, 0.9f + (i % 2) * 0.35f), Hex(0x3D3449), -28);
+            var stars = new[] { new Vector2(1.4f, 4.5f), new Vector2(2.6f, 4.1f), new Vector2(3.7f, 4.7f), new Vector2(5.1f, 4.4f), new Vector2(8.4f, 4.6f), new Vector2(9.2f, 3.9f), new Vector2(6.1f, 4.8f) };
+            foreach (var p in stars) Disc("PaintedStar", world, p, new Vector2(0.05f, 0.05f), Hex(0x9C8FA8), -27);
+            for (int side = 0; side < 2; side++)
+            {
+                float x = side == 0 ? 1.55f : 8.45f;
+                Disc("SconceGlow", world, new Vector2(x, 3.55f), new Vector2(0.6f, 0.6f), new Color(1f, 0.75f, 0.4f, 0.12f), -26, true);
+                Rect("SconceArm", world, new Vector2(x, 3.35f), new Vector2(0.04f, 0.3f), gold, -26);
+                Disc("SconceBulb", world, new Vector2(x, 3.55f), new Vector2(0.12f, 0.16f), Hex(0xF6D08A), -25, true);
+            }
+            Rect("FloorBackShade", world, new Vector2(5, 1.76f), new Vector2(10, 0.16f), new Color(0, 0, 0, 0.25f), -24);
+            for (int i = 0; i < 22; i++)   // 檐幕下沿的扇形垂边
+                Disc("ValanceScallop", world, new Vector2(i * 0.48f, 5.07f), new Vector2(0.5f, 0.26f), Hex(0x6F2841), 3);
+            for (int i = 0; i < 22; i++)
+                Disc("ValanceTassel", world, new Vector2(i * 0.48f + 0.24f, 4.96f), new Vector2(0.05f, 0.1f), gold, 4);
+            for (int side = 0; side < 2; side++)
+                Disc("CurtainTieback", world, new Vector2(side == 0 ? 0.32f : 9.68f, 2.25f), new Vector2(0.5f, 0.09f), gold, 5);
+            for (int i = 0; i < 12; i++)   // 台口脚灯
+            {
+                var p = new Vector2(0.55f + i * 0.81f, 0.8f);
+                Disc("FootlightGlow", world, p + Vector2.up * 0.06f, new Vector2(0.42f, 0.2f), new Color(1f, 0.78f, 0.45f, 0.14f), -22, true);
+                Disc("Footlight", world, p, new Vector2(0.14f, 0.08f), Hex(0xF3D293), -21, true);
+            }
+        }
+
+        // 台下观众：一排黑色背影，压在画面底边。头绕脖子转，跟着光圈看（Draw 里每帧更新）。
+        void BuildAudience()
+        {
+            bool hasArt = audienceBodies != null && audienceHeads != null && audienceBodies.Length > 0
+                && audienceBodies.Length == audienceHeads.Length && audienceBodies[0] != null && audienceHeads[0] != null;
+            const int count = 11;
+            audienceHeadPivots = new Transform[count];
+            audienceFollow = new float[count];
+            var rng = new System.Random(7);
+            for (int i = 0; i < count; i++)
+            {
+                float x = 0.4f + i * 0.92f + (float)(rng.NextDouble() - 0.5) * 0.18f;
+                float y = -0.32f - (float)rng.NextDouble() * 0.1f;
+                bool flip = rng.Next(2) == 0;
+                audienceFollow[i] = 1.5f + 3f * (float)rng.NextDouble();
+                if (hasArt)
+                {
+                    int kind = rng.Next(audienceBodies.Length);
+                    var body = Sprite("AudienceBack", world, audienceBodies[kind], new Vector2(x, y), new Vector2(1.0f, 1.2f), Color.white, 45);
+                    body.sharedMaterial = overlayMaterial;
+                    body.flipX = flip;
+                    // 头图的 pivot 在脖子（自下而上 0.375），所以放在身体底边往上 0.375 × 高度处，转起来绕着脖子。
+                    var head = Sprite("AudienceHead", world, audienceHeads[kind], new Vector2(x, y + 1.2f * 0.375f), new Vector2(1.0f, 1.2f), Color.white, 46);
+                    head.sharedMaterial = overlayMaterial;
+                    head.flipX = flip;
+                    audienceHeadPivots[i] = head.transform;
+                }
+                else
+                {
+                    var body = Disc("AudienceBack", world, new Vector2(x, -0.05f), new Vector2(0.8f, 0.6f), Hex(0x120E18), 45, true);
+                    var head = Group("AudienceHeadPivot", world, new Vector2(x, 0.2f));
+                    Disc("AudienceHead", head, new Vector2(0, 0.2f), new Vector2(0.36f, 0.4f), Hex(0x120E18), 46, true);
+                    audienceHeadPivots[i] = head;
+                }
+            }
+        }
+
+        // 两片大幕：每片若干褶，挂点在幕杆上，褶子从挂点往下垂。由 StageCurtains 模拟拉合。
+        void BuildCurtains()
+        {
+            if (curtains == null) return;
+            const int foldsPerSide = 9;
+            const float top = 5.02f, length = 4.45f;
+            curtains.left = new Transform[foldsPerSide];
+            curtains.right = new Transform[foldsPerSide];
+            for (int side = 0; side < 2; side++)
+            {
+                for (int i = 0; i < foldsPerSide; i++)
+                {
+                    var hang = Group(side == 0 ? "CurtainL" : "CurtainR", world, new Vector2(side == 0 ? 0f : 10f, top));
+                    hang.localPosition = new Vector3(hang.localPosition.x, top, -0.5f);
+                    Color c = i % 3 == 0 ? Hex(0x8A3350) : i % 3 == 1 ? Hex(0x772A43) : Hex(0x562034);
+                    Rect("Fold", hang, new Vector2(0, -length / 2f), new Vector2(1f, length), c, 40);
+                    Rect("Hem", hang, new Vector2(0, -length + 0.04f), new Vector2(1f, 0.08f), gold, 41);
+                    if (side == 0) curtains.left[i] = hang; else curtains.right[i] = hang;
+                }
+            }
+            curtains.SnapOpen();
         }
 
         public void UseRuntimeFont()
@@ -188,8 +299,7 @@ namespace Sleight.RabbitTrick
         public void Draw(RabbitTrickGame game)
         {
             box.position = new Vector3(game.BoxX, BoxBase, 0);
-            magician.position = new Vector3(game.Hands.BodyPosition.x, game.Hands.BodyPosition.y, -0.2f);
-            magician.GetComponent<SpriteRenderer>().sortingOrder = game.Hands.BodyPosition.y > 1.4f ? 10 : 24;
+            DrawMagician(game.Hands.BodyPosition);
             lid.localRotation = Quaternion.Euler(0, 0, game.LidAmount * 70f);
             emptyWindow.enabled = game.LidAmount > 0.4f;
             rabbit.position = game.RabbitPosition;
@@ -227,7 +337,78 @@ namespace Sleight.RabbitTrick
                 dancerLimbs[i].SetPosition(0, new Vector3(side * 0.19f, leg ? 0.1f : 1.15f, 0));
                 dancerLimbs[i].SetPosition(1, new Vector3(side * (leg ? 0.33f : 0.78f), (leg ? -0.14f : 0.83f) + dance * side * 0.15f, 0));
             }
+            DrawAudience(game.Audience.X);
             UpdateHud(game);
+        }
+
+        // 程序化走路：按走过的距离推进步伐相位，两腿相差半个周期；脚向前迈、离地抬起，
+        // 膝盖用两段固定长度的 IK 往前弯；身体随步伐上下起伏，朝走的方向转身。
+        void DrawMagician(Vector2 body)
+        {
+            float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+            if (!hasLastBody) { lastBody = body; hasLastBody = true; }
+            Vector2 delta = body - lastBody;
+            lastBody = body;
+            float speed = delta.magnitude / dt;
+            walkBlend = Mathf.MoveTowards(walkBlend, speed > 0.15f ? 1f : 0f, dt * 7f);
+            if (Mathf.Abs(delta.x) > 0.0004f) facingLeft = delta.x < 0;
+            walkPhase += delta.magnitude / Stride * Mathf.PI * 2f;
+            if (walkBlend <= 0f) walkPhase = Mathf.Lerp(walkPhase, Mathf.Round(walkPhase / Mathf.PI) * Mathf.PI, dt * 8f);
+
+            float bob = Mathf.Abs(Mathf.Sin(walkPhase)) * 0.04f * walkBlend;
+            float breathe = Mathf.Sin(Time.time * 2.2f) * 0.008f * (1f - walkBlend);
+            var sr = magician.GetComponent<SpriteRenderer>();
+            sr.flipX = facingLeft;
+            magician.position = new Vector3(body.x, body.y + bob + breathe, -0.2f);
+            magician.localRotation = Quaternion.Euler(0, 0, (facingLeft ? 1f : -1f) * 2.5f * walkBlend);   // 走路时身子微微前倾
+            int baseOrder = body.y > 1.4f ? 10 : 24;
+            sr.sortingOrder = baseOrder;
+
+            float face = facingLeft ? -1f : 1f;
+            for (int i = 0; i < 2; i++)
+            {
+                float ph = walkPhase + i * Mathf.PI;
+                Vector2 hip = new Vector2(body.x + face * (i == 0 ? -0.04f : 0.05f), body.y + HipHeight + bob);
+                float swing = Mathf.Sin(ph);
+                Vector2 foot = new Vector2(hip.x + face * swing * 0.24f * walkBlend,
+                    body.y + 0.05f + Mathf.Max(0f, Mathf.Cos(ph)) * 0.11f * walkBlend);
+                Vector2 knee = Knee(hip, foot, face);
+                legs[i].SetPosition(0, hip);
+                legs[i].SetPosition(1, knee);
+                legs[i].SetPosition(2, foot);
+                legs[i].sortingOrder = baseOrder - (i == 0 ? 2 : 1);
+                shoes[i].position = new Vector3(foot.x + face * 0.07f, foot.y - 0.02f, 0);
+                shoes[i].localRotation = Quaternion.Euler(0, 0, face * Mathf.Max(0f, Mathf.Cos(ph)) * 12f * walkBlend);
+                shoes[i].GetComponent<SpriteRenderer>().sortingOrder = baseOrder - (i == 0 ? 2 : 1);
+            }
+        }
+
+        static Vector2 Knee(Vector2 hip, Vector2 foot, float face)
+        {
+            Vector2 d = foot - hip;
+            float dist = Mathf.Clamp(d.magnitude, 0.05f, Thigh + Shin - 0.001f);
+            Vector2 axis = d.sqrMagnitude > 0.0001f ? d.normalized : Vector2.down;
+            float along = (Thigh * Thigh - Shin * Shin + dist * dist) / (2f * dist);
+            float h = Mathf.Sqrt(Mathf.Max(0f, Thigh * Thigh - along * along));
+            Vector2 perp = new Vector2(-axis.y, axis.x);
+            if (Vector2.Dot(perp, new Vector2(face, 0f)) < 0) perp = -perp;   // 膝盖朝前弯
+            return hip + axis * along + perp * h;
+        }
+
+        // 观众的头跟着光圈转：从背后看，往右看 = 后脑勺朝右歪。每个人反应快慢不一样。
+        void DrawAudience(float lightX)
+        {
+            float dt = Time.deltaTime;
+            for (int i = 0; i < audienceHeadPivots.Length; i++)
+            {
+                var head = audienceHeadPivots[i];
+                if (head == null) continue;
+                float dx = lightX - head.position.x;
+                float target = -Mathf.Clamp(dx * 4.5f, -16f, 16f);
+                float k = 1f - Mathf.Exp(-(audienceFollow.Length > i ? audienceFollow[i] : 3f) * dt);
+                float z = Mathf.LerpAngle(head.localEulerAngles.z, target, k);
+                head.localRotation = Quaternion.Euler(0, 0, z);
+            }
         }
 
         void UpdateHud(RabbitTrickGame game)
@@ -254,7 +435,7 @@ namespace Sleight.RabbitTrick
             hintLabel.text = game.Hint(zh);
             controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     E  抓取 / 松开 / 交接     R  重试"
                 : "WASD Walk     ARROWS Hand     F Switch     E Grab / release / pass     R Retry";
-            resultPanel.SetActive(game.Rules.Failed || game.Rules.Finished);
+            resultPanel.SetActive((game.Rules.Failed || game.Rules.Finished) && !game.ChangingLevel);
             if (game.Rules.Failed)
             {
                 resultTitle.text = zh ? "露馅了！" : "CAUGHT!";

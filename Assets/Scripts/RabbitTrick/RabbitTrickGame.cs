@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,6 +10,12 @@ namespace Sleight.RabbitTrick
         public RandomAudienceLight Audience;
         public DualHandController Hands;
         public AudioSource audioSource;
+        public StageCurtains Curtains;
+        public float curtainDelay = 2.2f;   // 成功后先让观众看清，再落幕
+        public float closedHold = 1.0f;     // 幕合拢后停多久再拉开
+        public const int LevelCount = 1;    // 目前只有一关；以后加关只改这里和 LoadLevel
+        public int Level { get; private set; }
+        public bool ChangingLevel { get; private set; }
         public RabbitTrickRules Rules { get; } = new RabbitTrickRules();
         public float BoxX { get; private set; }
         public float LidAmount { get; private set; }
@@ -55,12 +62,21 @@ namespace Sleight.RabbitTrick
         void Update()
         {
             var kb = Keyboard.current;
-            if (kb != null && kb.rKey.wasPressedThisFrame) ResetTrick();
+            if (kb != null && kb.rKey.wasPressedThisFrame && !ChangingLevel) ResetTrick();
+#if UNITY_EDITOR
+            // 调试：F9 直接走一遍落幕 → 拉开，不用先把魔术演完
+            if (kb != null && kb.f9Key.wasPressedThisFrame && !ChangingLevel && Curtains != null) StartCoroutine(NextLevel());
+#endif
             float dt = Mathf.Min(Time.deltaTime, 0.05f);
-            if (Rules.Failed || Rules.Finished)
+            if (ChangingLevel)
+            {
+                Audience.Tick(dt);
+            }
+            else if (Rules.Failed || Rules.Finished)
             {
                 ResultAge += dt;
                 if (Rules.Finished) Audience.Tick(dt);
+                if (Rules.Finished && Curtains != null && ResultAge >= curtainDelay) StartCoroutine(NextLevel());
             }
             else
             {
@@ -74,6 +90,25 @@ namespace Sleight.RabbitTrick
                 if (audioSource != null) audioSource.PlayOneShot(Rules.Failed ? bell : reveal, 0.45f);
             }
             view.Draw(this);
+        }
+
+        // 过关：两侧大幕合拢 → 停一下 → 在幕后换到下一关 → 拉开。
+        IEnumerator NextLevel()
+        {
+            ChangingLevel = true;
+            Curtains.Close();
+            yield return new WaitUntil(() => Curtains.Settled);
+            yield return new WaitForSeconds(closedHold);
+            LoadLevel((Level + 1) % LevelCount);
+            Curtains.Open();
+            yield return new WaitUntil(() => Curtains.Settled);
+            ChangingLevel = false;
+        }
+
+        void LoadLevel(int index)
+        {
+            Level = index;
+            ResetTrick();   // 目前每一关都是兔子魔术；多关以后在这里按 index 换布置
         }
 
         public void Evaluate(float dt)
