@@ -165,6 +165,8 @@ namespace Sleight.RabbitTrick
 
         public override void Tick(float dt)
         {
+            // 第一步完成之前，追光一直定在柜子上不动；之后交给芭蕾女郎和原来的走法
+            if (Step == 0) game.Audience.Follow(CabX);
             TickBallet(dt);
             bool hatchHeld = HeldBy(HatchId) >= 0;
             if (!hatchHeld && hatch > 0f)
