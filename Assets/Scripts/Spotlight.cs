@@ -69,6 +69,19 @@ namespace Sleight
             // TODO: 满怀疑时 2px 抖动
         }
 
+        // 幕完成：追光闪一下（0.15s 变亮，§16）。
+        public System.Collections.IEnumerator Pulse(float duration)
+        {
+            if (sr == null) yield break;
+            var c = sr.color;
+            float before = c.a;
+            c.a = 1f;
+            sr.color = c;
+            yield return new WaitForSeconds(duration);
+            c.a = before;
+            sr.color = c;
+        }
+
         // 由 ActRunner 在每帧第 3 步调用（§17.2）。
         public void Tick(float dt)
         {
