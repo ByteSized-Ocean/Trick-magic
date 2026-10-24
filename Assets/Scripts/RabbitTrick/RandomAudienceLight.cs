@@ -19,9 +19,11 @@ namespace Sleight.RabbitTrick
             travelElapsed = travelDuration = 0f;
             dwellRemaining = Random.Range(dwellMin, dwellMax) * 0.5f;
         }
-        // 偏向舞台左边：每次挑下一个落点时，有 leftChance 的机会去左边 [leftMin, leftMax]，并且在那里停得更久
-        public float leftChance, leftMin = 1.4f, leftMax = 3.0f, leftDwellMin = 6f, leftDwellMax = 9f;
-        public void SetLeftBias(float chance, float dwellMin, float dwellMax) { leftChance = chance; leftDwellMin = dwellMin; leftDwellMax = dwellMax; }
+        // 偏向舞台某一段：每次挑下一个落点时，有 biasChance 的机会去 [biasMin, biasMax]，并且在那里停得更久
+        // （第 2 关偏左，让柜子多在暗处；第 3 关偏中间，让悬浮的助手多在光下）
+        public float biasChance, biasMin = 1.4f, biasMax = 3.0f, biasDwellMin = 6f, biasDwellMax = 9f;
+        public void SetBias(float chance, float min, float max, float dwellMin, float dwellMax)
+        { biasChance = chance; biasMin = min; biasMax = max; biasDwellMin = dwellMin; biasDwellMax = dwellMax; }
         public void ScriptMove(float x, float duration) => MoveTo(x, duration);
         public void SetPace(float minDwell, float maxDwell, float minTravel, float maxTravel)
         { dwellMin = minDwell; dwellMax = maxDwell; travelMin = minTravel; travelMax = maxTravel; }
@@ -82,10 +84,11 @@ namespace Sleight.RabbitTrick
                 dwellRemaining -= dt;
                 if (dwellRemaining <= 0)
                 {
-                    if (leftChance > 0f && X > leftMax && Random.value < leftChance)
+                    bool inBias = X >= biasMin && X <= biasMax;
+                    if (biasChance > 0f && !inBias && Random.value < biasChance)
                     {
-                        MoveTo(Random.Range(leftMin, leftMax), Random.Range(travelMin, travelMax));
-                        dwellRemaining = Random.Range(leftDwellMin, leftDwellMax);
+                        MoveTo(Random.Range(biasMin, biasMax), Random.Range(travelMin, travelMax));
+                        dwellRemaining = Random.Range(biasDwellMin, biasDwellMax);
                     }
                     else
                     {
