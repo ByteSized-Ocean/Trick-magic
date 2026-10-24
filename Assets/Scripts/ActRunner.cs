@@ -86,10 +86,11 @@ namespace Sleight
             markers.Clear();
             if (d.requireAssistant)
             {
-                // §19.2 prop_marker_assist 64×16，压在地面线上。
+                // §19.2 prop_marker_assist：平铺在地板上的浅色标记，脚下那一行。
                 var marker = MakeBlock(d.TargetZone + ".assist", propsRoot, "Stage", 0, MarkerColor);
-                marker.transform.position = new Vector3(Stage.AssistX(d.TargetZone), Stage.Floor - 0.125f, 0f);
-                marker.transform.localScale = new Vector3(1.0f, 0.25f, 1f);
+                marker.transform.position = new Vector3(Stage.AssistX(d.TargetZone), Stage.Floor + 0.005f, -0.4f);
+                marker.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                marker.transform.localScale = new Vector3(1.0f, 0.8f, 1f);
                 markers.Add(marker.gameObject);
             }
 

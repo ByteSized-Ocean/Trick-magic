@@ -2,6 +2,7 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 
@@ -13,6 +14,9 @@ namespace Sleight.EditorTools
         const string ScenePath = "Assets/Scenes/Game.unity";
         const string PlaceholderPath = "Assets/Art/Placeholder/Placeholder.asset";
         const string PropPrefabPath = "Assets/Prefabs/P_Prop.prefab";
+        const string PipelinePath = "Assets/Settings/UniversalRP_3D.asset";
+        const string RendererPath = "Assets/Settings/UniversalRenderer_3D.asset";
+        const string MaterialDir = "Assets/Art/Materials";
         const string UnlitMaterialPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/Sprite-Unlit-Default.mat";
 
         static readonly string[] SortingLayers = { "BG", "Stage", "Props", "Player", "Light", "HUD" };
@@ -23,12 +27,14 @@ namespace Sleight.EditorTools
         static readonly Color Floor = Hex(0x55555C);
         static readonly Color FootLine = Hex(0x7C7C84);
         static readonly Color Divider = Hex(0x3A3A40);
-        static readonly Color SpotYellow = Hex(0xFFD21E, 0.55f);
+        static readonly Color SpotYellow = Hex(0xFFD21E);
+        static readonly Color Ambient = Hex(0xD8D8E0);
         static readonly Color ClearColor = Hex(0x101012);
 
         static Sprite centerSprite;
         static Sprite bottomSprite;
         static Material unlit;
+        static Material shadowCaster;
 
         [MenuItem("Sleight/搭建 Game 场景")]
         public static void BuildFromMenu()
@@ -44,13 +50,76 @@ namespace Sleight.EditorTools
         // 批处理入口：Unity -batchmode -executeMethod Sleight.EditorTools.SleightSetup.Build
         public static void Build()
         {
+            EnsureUniversalRenderer();
             ApplyProjectSettings();
             EnsureSortingLayers();
             EnsurePlaceholderSprites();
             unlit = AssetDatabase.LoadAssetAtPath<Material>(UnlitMaterialPath);
+            shadowCaster = LitMaterial("M_ShadowCaster", Silhouette);
             var propPrefab = EnsurePropPrefab();
             BuildScene(propPrefab);
             AssetDatabase.SaveAssets();
+        }
+
+        // 3D 舞台要真光照和阴影：把 2D Renderer 换成 Universal Renderer，打开附加光（追光）的阴影。
+        static void EnsureUniversalRenderer()
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(PipelinePath);
+            if (asset == null)
+            {
+                var data = ScriptableObject.CreateInstance<UniversalRendererData>();
+                AssetDatabase.CreateAsset(data, RendererPath);
+                asset = UniversalRenderPipelineAsset.Create(data);
+                AssetDatabase.CreateAsset(asset, PipelinePath);
+            }
+
+            var so = new SerializedObject(asset);
+            SetInt(so, "m_AdditionalLightsRenderingMode", (int)LightRenderingMode.PerPixel);
+            SetBool(so, "m_AdditionalLightShadowsSupported", true);
+            SetInt(so, "m_AdditionalLightsShadowmapResolution", 2048);
+            SetBool(so, "m_SoftShadowsSupported", false);   // 追光硬边（§5.3）
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(asset);
+
+            GraphicsSettings.defaultRenderPipeline = asset;
+            int current = QualitySettings.GetQualityLevel();
+            for (int i = 0; i < QualitySettings.names.Length; i++)
+            {
+                QualitySettings.SetQualityLevel(i, false);
+                QualitySettings.renderPipeline = asset;
+            }
+            QualitySettings.SetQualityLevel(current, false);
+        }
+
+        static void SetInt(SerializedObject so, string name, int v)
+        {
+            var p = so.FindProperty(name);
+            if (p != null) p.intValue = v;
+            else Debug.LogWarning($"[SleightSetup] URP 资源上没有 {name}，请手动检查");
+        }
+
+        static void SetBool(SerializedObject so, string name, bool v)
+        {
+            var p = so.FindProperty(name);
+            if (p != null) p.boolValue = v;
+            else Debug.LogWarning($"[SleightSetup] URP 资源上没有 {name}，请手动检查");
+        }
+
+        static Material LitMaterial(string name, Color color)
+        {
+            Directory.CreateDirectory(MaterialDir);
+            string path = $"{MaterialDir}/{name}.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.SetColor("_BaseColor", color);
+            mat.SetFloat("_Smoothness", 0f);
+            mat.SetFloat("_Metallic", 0f);
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         // §18.1 第 4、5 条：640×360 窗口、关抗锯齿。
@@ -139,6 +208,7 @@ namespace Sleight.EditorTools
             AddSprite(go, bottomSprite, Silhouette, "Props", 0);
             go.transform.localScale = new Vector3(0.75f, 0.8f, 1f);   // TODO: 按 §19.2 换成正式道具图
             go.AddComponent<PropInteractable>();
+            go.AddComponent<SilhouetteShadow>().shadowMaterial = shadowCaster;
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, PropPrefabPath);
             Object.DestroyImmediate(go);
             return prefab.GetComponent<PropInteractable>();
@@ -150,8 +220,10 @@ namespace Sleight.EditorTools
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             // MainCamera：正交、固定，不挂任何相机脚本（§4.1）。
+            // 正交不变，略微俯视 8°，让地板和舞台进深露出来。只绕 x 轴转，左右坐标和 2D 时完全一致。
             var camGo = new GameObject("MainCamera") { tag = "MainCamera" };
-            camGo.transform.position = new Vector3(5f, 2.8f, -10f);
+            camGo.transform.rotation = Quaternion.Euler(8f, 0f, 0f);
+            camGo.transform.position = new Vector3(5f, 2.8f, 0.5f) - camGo.transform.forward * 10.5f;
             var cam = camGo.AddComponent<Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 2.8125f;
@@ -163,14 +235,35 @@ namespace Sleight.EditorTools
             var camData = camGo.AddComponent<UniversalAdditionalCameraData>();
             camData.antialiasing = AntialiasingMode.None;
 
-            var stage = new GameObject("Stage").transform;
-            Block("BG_Wall", stage, new Vector2(5f, 2.8f), new Vector2(10f, 5.625f), Wall, "BG", 0);
-            Block("BG_Floor", stage, new Vector2(5f, 0.51f), new Vector2(10f, 0.98f), Floor, "BG", 1);
-            Block("BG_FootLine", stage, new Vector2(5f, 1.0f), new Vector2(10f, 0.02f), FootLine, "BG", 2);
-            Block("BG_Divider", stage, new Vector2(5f, 2.6f), new Vector2(0.02f, 3.2f), Divider, "BG", 3);
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = Ambient;
+            RenderSettings.skybox = null;
 
+            // 灰盒 3D 舞台。玩家和道具站在 z = 0，地板顶面 y = 1.0（§4.2 地面线）。
+            var stage = new GameObject("Stage").transform;
+            Box("Floor", stage, new Vector3(5f, 0.5f, 1.5f), new Vector3(13f, 1f, 5f), LitMaterial("M_Floor", Floor));
+            Box("FootLine", stage, new Vector3(5f, 0.995f, -0.99f), new Vector3(13f, 0.02f, 0.02f), LitMaterial("M_FootLine", FootLine));
+            Box("Divider", stage, new Vector3(5f, 1.001f, 1.5f), new Vector3(0.03f, 0.002f, 5f), LitMaterial("M_Divider", Divider));
+            Box("Backdrop", stage, new Vector3(5f, 3.6f, 4.0f), new Vector3(13f, 6f, 0.2f), LitMaterial("M_Wall", Wall));
+            var wing = LitMaterial("M_Wing", Hex(0x232327));
+            Box("Wing_L", stage, new Vector3(-0.1f, 3.0f, 2.2f), new Vector3(0.6f, 4.4f, 0.1f), wing);
+            Box("Wing_R", stage, new Vector3(10.1f, 3.0f, 2.2f), new Vector3(0.6f, 4.4f, 0.1f), wing);
+            Box("Valance", stage, new Vector3(5f, 5.15f, -0.6f), new Vector3(13f, 0.9f, 0.1f), wing);   // 檐幕，压住布景天顶以上
+
+            // 追光：一盏真的黄色 Spot Light，从台前上方打下来，只沿 x 平移（Spotlight.cs）。
             var lights = new GameObject("Spotlights").transform;
-            var spotGo = Block("Light_Main", lights, new Vector2(2.5f, 2.6f), new Vector2(4.5f, 3.2f), SpotYellow, "Light", 0);
+            var spotGo = new GameObject("Light_Main");
+            spotGo.transform.SetParent(lights, false);
+            spotGo.transform.position = new Vector3(2.5f, 6.5f, -3f);
+            spotGo.transform.LookAt(new Vector3(2.5f, 1f, 1.2f));
+            var beam = spotGo.AddComponent<Light>();
+            beam.type = LightType.Spot;
+            beam.color = SpotYellow;
+            beam.intensity = 40f;
+            beam.range = 15f;
+            beam.spotAngle = 36f;
+            beam.innerSpotAngle = 33f;
+            beam.shadows = LightShadows.Hard;
             var spotlight = spotGo.AddComponent<Spotlight>();
 
             var props = new GameObject("Props").transform;
@@ -179,6 +272,7 @@ namespace Sleight.EditorTools
             playerGo.transform.position = new Vector3(0.8f, 1.0f, 0f);
             playerGo.transform.localScale = new Vector3(1.0f, 3.0f, 1f);   // TODO: 换成 128×192 的玩家帧
             AddSprite(playerGo, bottomSprite, Silhouette, "Player", 0);
+            playerGo.AddComponent<SilhouetteShadow>().shadowMaterial = shadowCaster;
             playerGo.AddComponent<FrameAnim>();
             var player = playerGo.AddComponent<PlayerController>();
             player.spotlight = spotlight;
@@ -261,13 +355,18 @@ namespace Sleight.EditorTools
             return img;
         }
 
-        static GameObject Block(string name, Transform parent, Vector2 center, Vector2 size, Color color, string layer, int order)
+        static GameObject Box(string name, Transform parent, Vector3 center, Vector3 size, Material mat)
         {
-            var go = new GameObject(name);
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+            Object.DestroyImmediate(go.GetComponent<Collider>());
             go.transform.SetParent(parent, false);
-            go.transform.position = new Vector3(center.x, center.y, 0f);
-            go.transform.localScale = new Vector3(size.x, size.y, 1f);
-            AddSprite(go, centerSprite, color, layer, order);
+            go.transform.position = center;
+            go.transform.localScale = size;
+            var mr = go.GetComponent<MeshRenderer>();
+            mr.sharedMaterial = mat;
+            mr.shadowCastingMode = ShadowCastingMode.Off;
+            mr.receiveShadows = true;
             return go;
         }
 
