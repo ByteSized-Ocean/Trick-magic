@@ -20,6 +20,13 @@ namespace Sleight
 
         public Spotlight spotlight;
 
+        [Header("帧动画（§18.7，帧图朝右，空着就不播）")]
+        public Sprite[] idleFrames;
+        public Sprite[] walkFrames;
+        public Sprite[] actFrames;
+        public Sprite[] performFrames;
+        public Sprite caughtFrame;
+
         public PlayerState State { get; private set; }
 
         public event Action PerformStarted;
@@ -32,6 +39,15 @@ namespace Sleight
         float performPressedAt = float.NegativeInfinity;
         float actionEnd;
         PropInteractable actionTarget;
+        FrameAnim anim;
+        SpriteRenderer sr;
+        PlayerState animState = (PlayerState)(-1);
+
+        void Awake()
+        {
+            anim = GetComponent<FrameAnim>();
+            sr = GetComponent<SpriteRenderer>();
+        }
 
         public float X => transform.position.x;
         public Zone CurrentZone => Stage.ZoneOf(X);
@@ -55,9 +71,15 @@ namespace Sleight
             interactPressedAt = float.NegativeInfinity;
             performPressedAt = float.NegativeInfinity;
             actionTarget = null;
+            if (sr != null) sr.flipX = false;
+            UpdateAnim(true);
         }
 
-        public void SetCaught() => State = PlayerState.Caught;
+        public void SetCaught()
+        {
+            State = PlayerState.Caught;
+            UpdateAnim(false);
+        }
 
         // 光下按键的灰闪 0.1s（§8.2）。
         public void FlashBlocked()
@@ -84,6 +106,7 @@ namespace Sleight
             if (State == PlayerState.Interact || State == PlayerState.Perform)
             {
                 if (now >= actionEnd) CompleteAction();
+                UpdateAnim(false);
                 return;
             }
 
@@ -95,6 +118,7 @@ namespace Sleight
             if (kb.leftArrowKey.isPressed || kb.aKey.isPressed) dir -= 1f;
             SetX(X + dir * moveSpeed * dt);
             State = dir != 0f ? PlayerState.Walk : PlayerState.Idle;
+            if (dir != 0f && sr != null) sr.flipX = dir < 0f;
 
             bool ePressed = kb.eKey.wasPressedThisFrame;
             bool spacePressed = kb.spaceKey.wasPressedThisFrame;
@@ -108,6 +132,7 @@ namespace Sleight
                 State = PlayerState.Perform;
                 actionEnd = now + performDuration;
                 PerformStarted?.Invoke();
+                UpdateAnim(false);
                 return;
             }
 
@@ -122,6 +147,33 @@ namespace Sleight
                     actionEnd = now + prop.InteractDuration;
                 }
             }
+            UpdateAnim(false);
+        }
+
+        // 状态变了才换一组帧；动手 / 呈现的帧率按动作时长摊开，最后一帧正好落在完成时刻。
+        void UpdateAnim(bool force)
+        {
+            if (anim == null || (!force && State == animState)) return;
+            animState = State;
+            switch (State)
+            {
+                case PlayerState.Walk: Play(walkFrames, 10f, true); break;
+                case PlayerState.Interact:
+                    Play(actFrames, Frames(actFrames) / (actionTarget != null ? actionTarget.InteractDuration : 0.6f), false);
+                    break;
+                case PlayerState.Perform: Play(performFrames, Frames(performFrames) / performDuration, false); break;
+                case PlayerState.Caught:
+                    if (caughtFrame != null) Play(new[] { caughtFrame }, 1f, false);
+                    break;
+                default: Play(idleFrames, 2f, true); break;
+            }
+        }
+
+        static int Frames(Sprite[] f) => f != null && f.Length > 0 ? f.Length : 1;
+
+        void Play(Sprite[] frames, float fps, bool loop)
+        {
+            if (frames != null && frames.Length > 0) anim.Play(frames, fps, loop);
         }
 
         void CompleteAction()
