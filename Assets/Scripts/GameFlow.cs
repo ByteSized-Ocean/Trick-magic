@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Sleight
 {
@@ -29,6 +30,7 @@ namespace Sleight
             advancing = false;
             hud.SetActDots(Mathf.Max(0, d.index - 1));
             runner.Begin(d);
+            if (d.isEnding) StartCoroutine(PlayEnding());
         }
 
         public void OnActPassed()
@@ -47,18 +49,37 @@ namespace Sleight
         {
             var finished = acts[current];
             hud.SetActDots(finished.index);
-            // TODO: 追光闪一下（0.15s 变亮）。
             yield return new WaitForSeconds(actGap);
 
             int next = current + 1;
-            if (next >= acts.Length)
-            {
-                // TODO: 标题 → 结束（可重开）。
-                yield break;
-            }
-            if (acts[next].level != finished.level)
-                yield return hud.FadeBlack(0.3f);
+            if (next >= acts.Length) yield break;
+
+            // 关完成：0.3s 淡黑，在全黑那一刻换幕。
+            bool newLevel = acts[next].level != finished.level;
+            if (newLevel) yield return hud.FadeBlackTo(1f, 0.15f);
             LoadAct(acts[next]);
+            if (newLevel && !acts[next].isEnding) yield return hud.FadeBlackTo(0f, 0.15f);
+        }
+
+        // §14.4：进场 2.0s（灯逐渐灭）→ 停 3.0s → 眼睛消失 → 淡出 1.0s → 标题。结局不接受输入。
+        IEnumerator PlayEnding()
+        {
+            yield return hud.FadeBlackTo(0f, 0.15f);
+            hud.SetEyeVisible(true, new Vector3(5f, 4.6f, 0f));
+            yield return hud.FadeBlackTo(0.6f, 2.0f);
+            yield return new WaitForSeconds(3.0f);   // TODO: 他在走动的脚步声
+            hud.SetEyeVisible(false, Vector3.zero);
+            yield return hud.FadeBlackTo(1f, 1.0f);
+
+            // TODO: 换成 title_card（纯图形，无字）。标题之后按空格或 E 从头再来。
+            while (true)
+            {
+                var kb = Keyboard.current;
+                if (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.eKey.wasPressedThisFrame)) break;
+                yield return null;
+            }
+            LoadAct(acts[0]);
+            yield return hud.FadeBlackTo(0f, 0.25f);
         }
     }
 }

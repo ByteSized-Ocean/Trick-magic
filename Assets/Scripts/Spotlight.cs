@@ -5,7 +5,7 @@ namespace Sleight
 {
     // GDD §9：单束光。时间只由这里算一次（§17.2），ActRunner 不许自己算 NextArrival。
     // 循环：落定在 zone → dwell 秒 → transition 秒缓动到另一区 → 落定 → …
-    [RequireComponent(typeof(SpriteRenderer))]
+    // 画面上可以是一盏真的 Spot Light（3D 舞台），也可以是一张贴图；两者都有时一起调亮度。
     public class Spotlight : MonoBehaviour
     {
         public float width = 4.5f;
@@ -18,6 +18,9 @@ namespace Sleight
         Zone startZone;
         int arrivals;           // 已发出的落定次数
         SpriteRenderer sr;
+        Light beam;
+        LightCone cone;
+        float fullIntensity;
         bool running;
 
         float Period => spec.dwell + spec.transition;
@@ -25,6 +28,9 @@ namespace Sleight
         void Awake()
         {
             sr = GetComponent<SpriteRenderer>();
+            beam = GetComponentInChildren<Light>();
+            cone = GetComponentInChildren<LightCone>();
+            if (beam != null) fullIntensity = beam.intensity;
         }
 
         public void ResetTo(LightSpec s)
@@ -62,11 +68,32 @@ namespace Sleight
         // 亮度 = 0.55 + 0.45 * (suspicion/100)（§5.3）
         public void SetSuspicion(float suspicion)
         {
-            if (sr == null) return;
-            var c = sr.color;
-            c.a = 0.55f + 0.45f * Mathf.Clamp01(suspicion / 100f);
-            sr.color = c;
+            SetBrightness(0.55f + 0.45f * Mathf.Clamp01(suspicion / 100f));
             // TODO: 满怀疑时 2px 抖动
+        }
+
+        // 幕完成：追光闪一下（0.15s 变亮，§16）。
+        public System.Collections.IEnumerator Pulse(float duration)
+        {
+            float before = brightness;
+            SetBrightness(1.4f);
+            yield return new WaitForSeconds(duration);
+            SetBrightness(before);
+        }
+
+        float brightness = 1f;
+
+        void SetBrightness(float k)
+        {
+            brightness = k;
+            if (sr != null)
+            {
+                var c = sr.color;
+                c.a = Mathf.Clamp01(k);
+                sr.color = c;
+            }
+            if (beam != null) beam.intensity = fullIntensity * k;
+            if (cone != null) cone.SetBrightness(k);
         }
 
         // 由 ActRunner 在每帧第 3 步调用（§17.2）。

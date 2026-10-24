@@ -25,8 +25,22 @@ namespace Sleight
         ActData data;
         ActState state;
         readonly List<PropInteractable> props = new List<PropInteractable>();
+        readonly List<GameObject> markers = new List<GameObject>();
         bool locked;
         bool timedOut;
+
+        static readonly Color MarkerColor = new Color32(0xD0, 0xD0, 0xD6, 0x59);
+        static readonly Color EyeColor = new Color32(0xD0, 0xD0, 0xD6, 0xFF);
+
+        void Awake()
+        {
+            if (hud.eye == null)
+            {
+                hud.eye = MakeBlock("EyeFlash", transform, "Light", 10, EyeColor);
+                hud.eye.transform.localScale = new Vector3(1.0f, 0.625f, 1f);   // §19.3 eye_flash 64×40
+                hud.eye.gameObject.SetActive(false);
+            }
+        }
 
         void OnEnable()
         {
@@ -66,6 +80,18 @@ namespace Sleight
                 p.Init(spec);
                 props.Add(p);
                 state.propStates[spec.slot] = spec.initial;
+            }
+
+            foreach (var m in markers) Destroy(m);
+            markers.Clear();
+            if (d.requireAssistant)
+            {
+                // §19.2 prop_marker_assist：平铺在地板上的浅色标记，脚下那一行。
+                var marker = MakeBlock(d.TargetZone + ".assist", propsRoot, "Stage", 0, MarkerColor);
+                marker.transform.position = new Vector3(Stage.AssistX(d.TargetZone), Stage.Floor + 0.005f, -0.4f);
+                marker.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                marker.transform.localScale = new Vector3(1.0f, 0.8f, 1f);
+                markers.Add(marker.gameObject);
             }
 
             player.ResetTo(d.playerStart, props);
@@ -109,7 +135,12 @@ namespace Sleight
         public void TryJudge()
         {
             var v = Judgement.Judge(data, state, player.Snapshot(data.TargetZone), state.suspicion);
-            if (v.passed) { locked = true; flow.OnActPassed(); }
+            if (v.passed)
+            {
+                locked = true;
+                StartCoroutine(spotlight.Pulse(0.15f));
+                flow.OnActPassed();
+            }
             else Fail(v.reason);
         }
 
@@ -140,6 +171,21 @@ namespace Sleight
         {
             p.Toggle();
             state.propStates[p.slot] = p.State;
+        }
+
+        // 占位色块，复用道具预制体上的白图和材质。
+        SpriteRenderer MakeBlock(string name, Transform parent, string layer, int order, Color color)
+        {
+            var template = propPrefab.GetComponent<SpriteRenderer>();
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = template.sprite;
+            sr.sharedMaterial = template.sharedMaterial;
+            sr.sortingLayerName = layer;
+            sr.sortingOrder = order;
+            sr.color = color;
+            return sr;
         }
 
         public void Fail(FailReason reason)

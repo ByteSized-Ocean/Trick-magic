@@ -10,6 +10,8 @@ namespace Sleight
         public Image[] actDots = new Image[3];
         public Image flashWhite;
         public Image fadeBlack;
+        public SpriteRenderer eye;   // 白灰眼睛剪影，不许用黄
+        Coroutine eyeRoutine;
 
         public AudioSource sfxSource;
         public AudioSource heartbeatSource;
@@ -59,12 +61,40 @@ namespace Sleight
         public void PlayBlocked()
         {
             PlayOneShot(sfxBlocked);
-            // TODO: 玩家灰闪 0.1s。
         }
 
         public void ShowEye(Zone zone, float duration)
         {
-            // TODO: 在目标区上方显示 P_EyeFlash（白灰，不许用黄）。
+            if (eye == null) return;
+            if (eyeRoutine != null) StopCoroutine(eyeRoutine);
+            eye.transform.position = new Vector3(Stage.ZoneCenter(zone), 4.6f, 0f);
+            eyeRoutine = StartCoroutine(EyeRoutine(duration));
+        }
+
+        public void SetEyeVisible(bool visible, Vector3 position)
+        {
+            if (eye == null) return;
+            eye.transform.position = position;
+            eye.gameObject.SetActive(visible);
+        }
+
+        IEnumerator EyeRoutine(float duration)
+        {
+            eye.gameObject.SetActive(true);
+            yield return new WaitForSeconds(duration);
+            eye.gameObject.SetActive(false);
+        }
+
+        public IEnumerator FadeBlackTo(float alpha, float duration)
+        {
+            if (fadeBlack == null) yield break;
+            float from = fadeBlack.color.a;
+            for (float t = 0; t < duration; t += Time.deltaTime)
+            {
+                SetAlpha(fadeBlack, Mathf.Lerp(from, alpha, t / duration));
+                yield return null;
+            }
+            SetAlpha(fadeBlack, alpha);
         }
 
         // 怀疑度 > 60 时循环心跳，音量随怀疑度线性升。
