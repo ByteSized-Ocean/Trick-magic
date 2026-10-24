@@ -216,6 +216,106 @@ def magician(pose):
     return c.render(seed=zlib.crc32(repr(sorted(pose.items())).encode()))
 
 
+# 彩色版魔术师（跟参考图）：紫礼帽金带、米色脸、浅灰衬衫、紫外套、藏青裤子。造型和姿势沿用剪影版。
+HAT = (74, 58, 122)
+HAT_BAND = (200, 150, 46)
+FACE = (201, 168, 138)
+SHIRT = (200, 196, 192)
+COAT = (90, 46, 110)
+COAT_BACK = (66, 34, 82)
+TROUSERS = (46, 58, 90)
+TROUSERS_BACK = (36, 44, 70)
+SHOES = (30, 26, 36)
+GLOVE = (243, 230, 181)
+
+
+def magician_color(pose):
+    c = Paint(128, 192)
+    d = math.radians
+    hip = (62, 112)
+    bow = d(pose.get("bow", 0))
+    torso_ang = bow + d(6)
+    neck = (hip[0] + math.sin(torso_ang) * 50, hip[1] - math.cos(torso_ang) * 50 + pose.get("breath", 0))
+    up = (math.sin(torso_ang), -math.cos(torso_ang))
+    side = (math.cos(torso_ang), math.sin(torso_ang))
+    sh_l = (neck[0] - side[0] * 15, neck[1] - side[1] * 15)
+    sh_r = (neck[0] + side[0] * 13, neck[1] + side[1] * 13)
+
+    def leg(which, color):
+        thigh, knee = pose["legs"][which]
+        k = polar(hip, 38, d(thigh))
+        a = polar(k, 38, d(thigh - knee))
+        a = (a[0], min(a[1], 186))
+        c.limb([hip, k, a], 8, color)
+        c.limb([a, (a[0] + 9, a[1] + 1)], 5, SHOES)
+
+    def arm(which, color):
+        upper, fore = pose["arms"][which]
+        sh = sh_l if which == "back" else sh_r
+        e = polar(sh, 26, d(upper) + torso_ang)
+        h = polar(e, 24, d(upper + fore) + torso_ang)
+        c.limb([sh, e, h], 5, color)
+        hand_ang = d(upper + fore) + torso_ang
+        for spread in (-28, 0, 28):
+            c.limb([h, polar(h, 6, hand_ang + d(spread))], 2, GLOVE)
+        if which == "front" and pose.get("wand", True):
+            wa = hand_ang + d(pose.get("wand_ang", -70))
+            mid = polar(h, 13, wa)
+            tip = polar(mid, 11, wa + d(28))
+            c.limb([h, mid, tip], 2.2, SHOES)
+            c.line([polar(mid, 7, wa + d(28)), tip], CREAM, 2)
+
+    leg("back", TROUSERS_BACK)
+    arm("back", COAT_BACK)
+
+    w_l, w_r = (hip[0] - 10, hip[1]), (hip[0] + 9, hip[1])
+    tail = d(pose.get("tail", 0))
+    t1 = polar(w_l, 34, d(12) + tail)
+    t2 = polar((w_l[0] + 6, w_l[1]), 30, d(4) + tail)
+    c.poly([w_l, (w_l[0] + 10, w_l[1] - 4), t2, (t1[0] + 3, t1[1]), t1], COAT_BACK)   # 燕尾
+    leg("front", TROUSERS)
+    c.poly([sh_l, sh_r, w_r, w_l], COAT)                                               # 外套
+    mid_top = ((sh_l[0] + sh_r[0]) / 2 + 2, (sh_l[1] + sh_r[1]) / 2 + 2)
+    c.poly([mid_top, (mid_top[0] + 10, mid_top[1]), (w_r[0] - 2, w_r[1] - 6), (w_r[0] - 10, w_r[1] - 6)], SHIRT)   # 衬衫前襟
+
+    head = (neck[0] + up[0] * 11, neck[1] + up[1] * 11)
+    c.limb([neck, head], 6, FACE)
+    c.ellipse((head[0] - 9, head[1] - 10, head[0] + 10, head[1] + 9), FACE)
+    c.poly([(head[0] + 8, head[1] - 2), (head[0] + 14, head[1] + 2), (head[0] + 8, head[1] + 4)], FACE)
+    c.rect((head[0] + 2, head[1] - 3, head[0] + 4, head[1] - 1), SHOES)               # 眼睛
+
+    hat_ang = torso_ang + d(pose.get("hat", -4))
+    hb = (head[0] + up[0] * 7, head[1] + up[1] * 7)
+    brim = [(hb[0] - 15, hb[1] - 2), (hb[0] + 16, hb[1] - 2), (hb[0] + 16, hb[1] + 2), (hb[0] - 15, hb[1] + 2)]
+    crown = [(hb[0] - 10, hb[1] - 1), (hb[0] + 11, hb[1] - 1), (hb[0] + 13, hb[1] - 44), (hb[0] - 9, hb[1] - 44)]
+    band = [(hb[0] - 10, hb[1] - 2), (hb[0] + 11, hb[1] - 2), (hb[0] + 11, hb[1] - 8), (hb[0] - 10, hb[1] - 8)]
+    c.poly(rot(hb[0], hb[1], crown, hat_ang), HAT)
+    c.poly(rot(hb[0], hb[1], band, hat_ang), HAT_BAND)
+    c.poly(rot(hb[0], hb[1], brim, hat_ang), HAT)
+
+    arm("front", COAT)
+    return c.render(seed=zlib.crc32(repr(sorted(pose.items())).encode()), grain=3)
+
+
+def glove():
+    """搭台段那只大手套（参考图）：奶油色，四根手指加大拇指，手腕朝下接提线。"""
+    c = Paint(32, 32)
+    c.ellipse((7, 12, 25, 29), GLOVE)
+    for x in (8, 12.5, 17, 21.5):
+        c.rect((x, 4, x + 4, 18), GLOVE)
+        c.ellipse((x, 2, x + 4, 7), GLOVE)
+    c.ellipse((2, 14, 10, 22), GLOVE)                                                  # 大拇指
+    c.rect((11, 27, 21, 32), (214, 200, 150))                                         # 手腕
+    return c.render(seed=22, grain=2)
+
+
+def ring():
+    """当前在控制的那只手后面的青绿色圆圈。"""
+    img = Image.new("RGBA", (48 * S, 48 * S), (0, 0, 0, 0))
+    ImageDraw.Draw(img).ellipse((0, 0, 48 * S - 1, 48 * S - 1), fill=(47, 168, 142, 200))
+    return img.resize((48, 48), Image.LANCZOS)
+
+
 STAND_LEGS = {"back": (-4, 2), "front": (4, 2)}
 IDLE_ARMS = {"back": (8, 6), "front": (-14, -50)}
 
@@ -282,6 +382,13 @@ class Paint:
 
     def line(self, pts, color, width):
         self.d.line(self._p(pts), fill=color + (255,), width=max(1, int(width * S)))
+
+    def limb(self, pts, width, color):
+        p = self._p(pts)
+        self.d.line(p, fill=color + (255,), width=int(width * S), joint="curve")
+        r = width * S / 2
+        for x, y in (p[0], p[-1]):
+            self.d.ellipse((x - r, y - r, x + r, y + r), fill=color + (255,))
 
     def render(self, seed=0, grain=4):
         return add_grain(self.img.resize((self.w, self.h), Image.LANCZOS), grain, seed)
@@ -483,7 +590,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     print("写入", OUT)
     for name, pose in MAGICIAN.items():
-        save(magician(pose), name)
+        save(magician_color(pose), name)
     props = {
         "prop_box_open": box_open(), "prop_box_sealed": box_sealed(),
         "prop_cloth_off": cloth_off(), "prop_cloth_on": cloth_on(),
@@ -492,7 +599,8 @@ def main():
     for name, img in props.items():
         save(img, name)
         save(ghost(img), "ghost_" + name)
-    save(hand(), "player_hand")
+    save(glove(), "player_hand")
+    save(ring(), "hand_ring")
     save(marker_assist(), "prop_marker_assist")
     for k in range(AUDIENCE_KINDS):
         body, head = audience(k)

@@ -143,6 +143,7 @@ MonoBehaviour:
   performBuffer: 0.15
   performDuration: 1
   spotlight: {fileID: 0}
+  actionsEnabled: 1
   idleFrames:
   - {fileID: 21300000, guid: bd368f99096714350b0a3b232cf149bd, type: 3}
   - {fileID: 21300000, guid: 9b66fa5a9378b4299bc8772bc286b4d2, type: 3}

@@ -88,7 +88,7 @@ SpriteRenderer:
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 0.625, y: 1.75}
+  m_Size: {x: 0.75, y: 2}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -108,9 +108,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sleight.PropInteractable
   slot: 
   type: mirror
+  isDecoy: 0
   stateSprites:
   - {fileID: 21300000, guid: b0cc3d551683045c1ad68ea5835650cf, type: 3}
   - {fileID: 21300000, guid: 2413a1e171bc9415598c36acc34a154d, type: 3}
+  ghostSprites:
+  - {fileID: 21300000, guid: ef36141f3ea224c2198291e5da1b6338, type: 3}
+  - {fileID: 21300000, guid: 478eb9a5bbe8a4546adc8af05b77a290, type: 3}
 --- !u!114 &3649557654615059178
 MonoBehaviour:
   m_ObjectHideFlags: 0
