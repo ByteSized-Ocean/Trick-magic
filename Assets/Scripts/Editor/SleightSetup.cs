@@ -207,6 +207,7 @@ namespace Sleight.EditorTools
             var prop = go.AddComponent<PropInteractable>();
             prop.type = type;
             prop.stateSprites = new[] { a, b };
+            prop.ghostSprites = new[] { Art("ghost_" + wrong), Art("ghost_" + right) };
             go.AddComponent<SilhouetteShadow>().shadowMaterial = shadowCaster;
             return SavePrefab<PropInteractable>(go, name);
         }
@@ -253,6 +254,86 @@ namespace Sleight.EditorTools
             player.performFrames = ArtFrames("player_perform", 3);
             player.caughtFrame = Art("player_caught_00");
             return SavePrefab<PlayerController>(go, "P_Player");
+        }
+
+        static Material UnlitMaterial(string name, Color color, bool transparent)
+        {
+            Directory.CreateDirectory(MaterialDir);
+            string path = $"{MaterialDir}/{name}.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            if (transparent)
+            {
+                mat.SetFloat("_Surface", 1f);
+                mat.SetFloat("_Blend", 0f);
+                mat.SetFloat("_ZWrite", 0f);
+                mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+                mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+                mat.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+                mat.SetOverrideTag("RenderType", "Transparent");
+                mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                mat.renderQueue = (int)RenderQueue.Transparent;
+            }
+            mat.SetColor("_BaseColor", color);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        // GDD §0.2：大幕画成半透明深红纱（隔着它看得见幕后），台侧挂一个随时间下坠的沙袋。
+        static Curtain BuildCurtain(Transform stage)
+        {
+            var root = new GameObject("Curtain");
+            root.transform.SetParent(stage, false);
+            var curtain = root.AddComponent<Curtain>();
+
+            var cloth = Box("Cloth", root.transform, new Vector3(5f, 3.1f, -0.7f), new Vector3(10.4f, 4.4f, 0.05f),
+                UnlitMaterial("M_CurtainVeil", new Color(Crimson.r, Crimson.g, Crimson.b, 0.35f), true));
+            var r = cloth.GetComponent<MeshRenderer>();
+            r.receiveShadows = false;
+            r.sortingLayerName = "Light";   // 盖在剪影上面
+            r.sortingOrder = 20;
+            var hem = Box("Hem", cloth.transform, new Vector3(5f, 0.95f, -0.72f), new Vector3(10.4f, 0.12f, 0.05f), LitMaterial("M_Velvet", Crimson));
+            hem.transform.localScale = new Vector3(1f, 0.12f / 4.4f, 1f);
+            hem.transform.localPosition = new Vector3(0f, -0.5f + 0.06f / 4.4f, -0.6f);
+
+            var rope = Box("Rope", root.transform, new Vector3(0.45f, 3.6f, -0.95f), new Vector3(0.02f, 4.0f, 0.02f), LitMaterial("M_FootLine", FootLine));
+            rope.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
+            var bag = Box("Sandbag", root.transform, new Vector3(0.45f, 4.8f, -0.95f), new Vector3(0.22f, 0.3f, 0.12f), LitMaterial("M_Floor", Floor));
+
+            curtain.cloth = cloth.transform;
+            curtain.sandbag = bag.transform;
+            return curtain;
+        }
+
+        // GDD §0.3：搭台段的手，一根细线连到肩膀。
+        static HandController BuildHand(PlayerController player)
+        {
+            var go = new GameObject("Hand");
+            var sprite = Art("player_hand");
+            if (sprite != null) AddSprite(go, sprite, Color.white, "Player", 5);
+            else
+            {
+                AddSprite(go, circleSprite, Silhouette, "Player", 5);
+                go.transform.localScale = new Vector3(0.3f, 0.3f, 1f);
+            }
+            var line = go.AddComponent<LineRenderer>();
+            line.positionCount = 2;
+            line.useWorldSpace = true;
+            line.widthMultiplier = 0.025f;
+            line.sharedMaterial = UnlitMaterial("M_String", Silhouette, false);
+            line.shadowCastingMode = ShadowCastingMode.Off;
+            line.sortingLayerName = "Player";
+            line.sortingOrder = 4;
+            var hand = go.AddComponent<HandController>();
+            hand.player = player;
+            hand.line = line;
+            go.SetActive(false);
+            return hand;
         }
 
         static Material LitMaterial(string name, Color color)
@@ -442,6 +523,10 @@ namespace Sleight.EditorTools
             player.transform.position = new Vector3(0.8f, 1.0f, 0f);
             player.spotlight = spotlight;
 
+            var curtain = BuildCurtain(stage);
+            var hand = BuildHand(player);
+            var preview = new GameObject("PreviewCard").AddComponent<PreviewCard>();
+
             BuildAudience(spotGo.transform);
             BuildPostFx(camData);
 
@@ -457,6 +542,9 @@ namespace Sleight.EditorTools
             runner.player = player;
             runner.hud = hud;
             runner.propsRoot = props;
+            runner.hand = hand;
+            runner.curtain = curtain;
+            runner.preview = preview;
             runner.propPrefab = propPrefab;
             runner.boxPrefab = EnsureTypedPropPrefab("P_Prop_Box", "box", "prop_box_open", "prop_box_sealed");
             runner.clothPrefab = EnsureTypedPropPrefab("P_Prop_Cloth", "cloth", "prop_cloth_off", "prop_cloth_on");

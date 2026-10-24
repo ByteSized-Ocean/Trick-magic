@@ -17,6 +17,8 @@ namespace Sleight
         public LightSpec[] lights;    // v1 长度 1
         public float actTimeLimit = 45f;
         public bool isEnding;
+        public float setupTime;         // GDD §0.2：搭台限时，0 = 没有搭台段
+        public PropSpec[] decoys;       // GDD §0.5：干扰道具，开幕时不能在任何槽位上
         public string designNote;     // 给美术/关卡看的备注，游戏内不显示
 
         public Zone TargetZone => targetZone == "A" ? Zone.A : Zone.B;
@@ -46,6 +48,7 @@ namespace Sleight
         public string type;     // "box" | "cloth" | "mirror"
         public string initial;  // "open" | "sealed" | "on" | "off" | "normal" | "flipped"
         public string target;   // 同上
+        public float startX;    // GDD §0.7：道具架上的起点，0 = 直接放在 slot 上
     }
 
     [Serializable]
@@ -90,5 +93,8 @@ namespace Sleight
         }
 
         public static float AssistX(Zone z) => SlotX(z == Zone.A ? "A.assist" : "B.assist");
+
+        // 能摆道具的六个槽位（助手位是地面标记，不放道具）。
+        public static readonly string[] PropSlots = { "A.box", "A.cloth", "A.mirror", "B.box", "B.cloth", "B.mirror" };
     }
 }

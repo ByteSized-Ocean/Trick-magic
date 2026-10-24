@@ -309,6 +309,22 @@ def mirror(flipped):
     return c.render(seed=15 + flipped)
 
 
+def ghost(img):
+    """成品图虚影：同一剪影，换成纯旧纸色（GDD §0.2）。"""
+    g = Image.new("RGBA", img.size, AGED_PAPER + (0,))
+    g.putalpha(img.getchannel("A"))
+    return g
+
+
+def hand():
+    """搭台段单独操控的那只手：三根手指，手腕朝上（连提线）。"""
+    c = Canvas(24, 24)
+    c.ellipse((7, 4, 17, 14))
+    for x0, x1 in ((8, 6), (12, 12), (16, 18)):
+        c.limb([(x0, 12), (x1, 21)], 2.4)
+    return c.render(seed=21)
+
+
 def marker_assist():
     img = Image.new("RGBA", (64, 16), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -402,12 +418,15 @@ def main():
     print("写入", OUT)
     for name, pose in MAGICIAN.items():
         save(magician(pose), name)
-    save(box_open(), "prop_box_open")
-    save(box_sealed(), "prop_box_sealed")
-    save(cloth_off(), "prop_cloth_off")
-    save(cloth_on(), "prop_cloth_on")
-    save(mirror(False), "prop_mirror_normal")
-    save(mirror(True), "prop_mirror_flipped")
+    props = {
+        "prop_box_open": box_open(), "prop_box_sealed": box_sealed(),
+        "prop_cloth_off": cloth_off(), "prop_cloth_on": cloth_on(),
+        "prop_mirror_normal": mirror(False), "prop_mirror_flipped": mirror(True),
+    }
+    for name, img in props.items():
+        save(img, name)
+        save(ghost(img), "ghost_" + name)
+    save(hand(), "player_hand")
     save(marker_assist(), "prop_marker_assist")
     for k in range(AUDIENCE_KINDS):
         body, head = audience(k)

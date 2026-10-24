@@ -7,7 +7,7 @@ namespace Sleight.EditorTools
     public class SpriteImportRules : AssetPostprocessor
     {
         // 改了规则就加 1，Unity 会按新规则重新导入已有的图。
-        public override uint GetVersion() => 3;
+        public override uint GetVersion() => 4;
 
         void OnPreprocessTexture()
         {
@@ -42,6 +42,8 @@ namespace Sleight.EditorTools
         static SpriteAlignment PivotFor(string file)
         {
             if (file.StartsWith("spot_")) return SpriteAlignment.TopCenter;
+            if (file.StartsWith("player_hand")) return SpriteAlignment.Center;
+            if (file.StartsWith("ghost_prop_")) return SpriteAlignment.BottomCenter;
             if (file.StartsWith("player_") || file.StartsWith("audience_") || (file.StartsWith("prop_") && !file.StartsWith("prop_marker"))) return SpriteAlignment.BottomCenter;
             return SpriteAlignment.Center;
         }
