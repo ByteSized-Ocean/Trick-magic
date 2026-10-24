@@ -1,0 +1,355 @@
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace Sleight.RabbitTrick
+{
+    public sealed class RabbitStageView : MonoBehaviour
+    {
+        public Sprite square;
+        public Sprite circle;
+        public Sprite magicianArt;
+        public Sprite[] audienceArt;
+        public Material stageMaterial;
+        public Material magicianMaterial;
+        public Material overlayMaterial;
+        public Material lineMaterial;
+        public Material lineOverlayMaterial;
+        public Font interfaceFont;
+
+        [SerializeField] Transform world;
+        [SerializeField] Transform box, lid, rabbit, dancer, magician, dancerHandle, dancerBase;
+        [SerializeField] Transform[] gloves = new Transform[2];
+        [SerializeField] SpriteRenderer[] handRings = new SpriteRenderer[2];
+        [SerializeField] LineRenderer[] arms = new LineRenderer[2];
+        [SerializeField] LineRenderer[] dancerLimbs = new LineRenderer[4];
+        [SerializeField] Transform beam;
+        [SerializeField] SpriteRenderer pool;
+        [SerializeField] SpriteRenderer emptyWindow;
+        [SerializeField] Text[] stepLabels = new Text[3];
+        [SerializeField] Image[] stepBars = new Image[3];
+        [SerializeField] Text handLabel, hintLabel, gazeLabel, endingLabel;
+        [SerializeField] Image showProgress, distractionProgress, flash;
+        [SerializeField] GameObject resultPanel;
+        [SerializeField] Text resultTitle, resultBody;
+        [SerializeField] Text controls;
+        Font runtimeFont;
+        readonly Color cream = new Color32(242, 222, 188, 255);
+        readonly Color teal = new Color32(100, 220, 199, 255);
+        readonly Color gold = new Color32(210, 156, 79, 255);
+        const float BoxBase = 1.18f;
+
+        public void Build()
+        {
+            world = Group("Stage", transform, Vector2.zero);
+            Rect("Backdrop", world, new Vector2(5, 3.1f), new Vector2(10, 5.0f), Hex(0x453C50), -30);
+            for (int i = 0; i < 16; i++)
+                Rect("WallPanel", world, new Vector2(i * 0.67f, 3f), new Vector2(0.025f, 4.6f), Hex(0x615061), -29);
+            Rect("StageFloor", world, new Vector2(5, 1.28f), new Vector2(10, 1.13f), Hex(0xAD7956), -25);
+            Rect("StageLip", world, new Vector2(5, 0.72f), new Vector2(10, 0.12f), gold, -24);
+            for (int i = 0; i < 19; i++)
+                Rect("FloorBoard", world, new Vector2(i * 0.57f, 1.28f), new Vector2(0.014f, 1.05f), Hex(0x503833), -24);
+            for (int side = 0; side < 2; side++)
+                for (int fold = 0; fold < 4; fold++)
+                    Rect("Velvet", world, new Vector2(side == 0 ? fold * 0.17f : 10 - fold * 0.17f, 3.2f),
+                        new Vector2(0.25f, 4.7f), fold % 2 == 0 ? Hex(0x772A43) : Hex(0x562034), 2);
+            Rect("Valance", world, new Vector2(5, 5.35f), new Vector2(10, 0.55f), Hex(0x6F2841), 2);
+            Rect("ValanceTrim", world, new Vector2(5, 5.07f), new Vector2(10, 0.045f), gold, 3);
+
+            var magicianSprite = Sprite("Magician", world, magicianArt, new Vector2(3.85f, 1.18f), new Vector2(1.4f, 2.3f), Color.white, 10);
+            // Original art is bottom-pivoted; place the feet on the boards.
+            magicianSprite.transform.position = new Vector3(3.85f, 1.18f, -0.2f);
+            magicianSprite.sharedMaterial = magicianMaterial;
+            magician = magicianSprite.transform;
+            for (int i = 0; i < 2; i++)
+            {
+                arms[i] = Line("Sleeve", world, 0.11f, Hex(0x925576), 12, 3);
+                gloves[i] = Group(i == 0 ? "LeftHand" : "RightHand", world, Vector2.zero);
+                handRings[i] = Disc("SelectedHand", gloves[i], Vector2.zero, new Vector2(0.53f, 0.53f), new Color(0.25f, 0.9f, 0.78f, 0.3f), 30, true);
+                Disc("Glove", gloves[i], Vector2.zero, new Vector2(0.29f, 0.32f), cream, 32);
+                for (int finger = 0; finger < 4; finger++)
+                    Disc("Finger", gloves[i], new Vector2(-0.105f + finger * 0.069f, 0.135f), new Vector2(0.075f, 0.18f), cream, 32);
+                Disc("Thumb", gloves[i], new Vector2(i == 0 ? 0.16f : -0.16f, -0.015f), new Vector2(0.14f, 0.09f), cream, 32);
+                Rect("Cuff", gloves[i], new Vector2(0, -0.17f), new Vector2(0.27f, 0.07f), teal, 33);
+            }
+
+            box = Group("RabbitBox", world, new Vector2(5.85f, BoxBase));
+            Rect("Interior", box, new Vector2(0, 0.45f), new Vector2(1.58f, 0.9f), Hex(0x101A28), 15);
+            Rect("BoxFace", box, new Vector2(0, 0.44f), new Vector2(1.6f, 0.88f), Hex(0x3C6389), 18);
+            emptyWindow = Rect("EmptyInteriorWindow", box, new Vector2(0, 0.68f), new Vector2(1.35f, 0.28f), Hex(0x111A29), 20);
+            for (int i = -1; i <= 1; i += 2)
+                Rect("BrassEdge", box, new Vector2(i * 0.75f, 0.45f), new Vector2(0.05f, 0.9f), gold, 19);
+            Rect("BottomTrim", box, new Vector2(0, 0.03f), new Vector2(1.62f, 0.06f), gold, 19);
+            var diamond = Rect("Emblem", box, new Vector2(0, 0.39f), new Vector2(0.24f, 0.24f), gold, 19);
+            diamond.transform.localRotation = Quaternion.Euler(0, 0, 45);
+            Rect("BoxDragHandle", box, new Vector2(0, 0.39f), new Vector2(0.23f, 0.07f), cream, 20);
+            lid = Group("LidHinge", box, new Vector2(-0.78f, 0.93f));
+            Rect("Lid", lid, new Vector2(0.78f, 0), new Vector2(1.7f, 0.15f), Hex(0x4C769C), 22);
+            Rect("LidTrim", lid, new Vector2(0.78f, 0.075f), new Vector2(1.7f, 0.035f), gold, 23);
+            Disc("LidHandle", lid, new Vector2(0.78f, 0.06f), new Vector2(0.25f, 0.13f), cream, 24);
+
+            rabbit = Group("Rabbit", world, new Vector2(1.3f, 1.55f));
+            Disc("Body", rabbit, new Vector2(0, -0.03f), new Vector2(0.43f, 0.48f), cream, 25);
+            Disc("Tail", rabbit, new Vector2(-0.24f, -0.1f), new Vector2(0.18f, 0.18f), Color.white, 26);
+            Disc("Head", rabbit, new Vector2(0.05f, 0.18f), new Vector2(0.35f, 0.34f), Color.white, 26);
+            for (int i = 0; i < 2; i++)
+            {
+                float x = i == 0 ? -0.045f : 0.14f;
+                Disc("Ear", rabbit, new Vector2(x, 0.45f), new Vector2(0.115f, 0.42f), Color.white, 26);
+                Disc("PinkEar", rabbit, new Vector2(x, 0.46f), new Vector2(0.05f, 0.28f), Hex(0xD88D9D), 27);
+            }
+            Disc("Eye", rabbit, new Vector2(0.13f, 0.22f), new Vector2(0.045f, 0.06f), Hex(0x241E35), 28);
+            Disc("Nose", rabbit, new Vector2(0.23f, 0.13f), new Vector2(0.065f, 0.05f), Hex(0xE699AA), 28);
+            Rect("Ribbon", rabbit, new Vector2(0.02f, 0.045f), new Vector2(0.31f, 0.055f), Hex(0xBC5A6C), 28);
+            Disc("RabbitRest", world, new Vector2(1.3f, 1.17f), new Vector2(0.9f, 0.12f), Hex(0x7F577D), 1);
+
+            dancer = Group("DancingDecoy", world, new Vector2(8.25f, 1.4f));
+            dancerBase = Group("DecoyWheels", world, new Vector2(8.25f, 1.3f));
+            Rect("MusicBox", dancerBase, Vector2.zero, new Vector2(1.1f, 0.25f), Hex(0x8E684C), 11);
+            Rect("MusicBoxTrim", dancerBase, new Vector2(0, 0.14f), new Vector2(1.16f, 0.04f), gold, 12);
+            Rect("OpaqueCape", dancer, new Vector2(0, 0.7f), new Vector2(1.2f, 1.5f), Hex(0xB55061), 29);
+            Rect("CapeTrim", dancer, new Vector2(0, -0.03f), new Vector2(1.2f, 0.06f), gold, 30);
+            Disc("DecoyHead", dancer, new Vector2(0, 1.37f), new Vector2(0.31f, 0.34f), cream, 31);
+            Rect("DecoyHat", dancer, new Vector2(0, 1.61f), new Vector2(0.31f, 0.23f), Hex(0x6F345C), 31);
+            Rect("DecoyBrim", dancer, new Vector2(0, 1.48f), new Vector2(0.45f, 0.05f), gold, 31);
+            for (int i = 0; i < 4; i++) dancerLimbs[i] = Line("DecoyLimb", dancer, 0.065f, cream, 30, 2);
+            dancerHandle = Disc("WindUpHandle", world, new Vector2(8.97f, 2.45f), new Vector2(0.19f, 0.19f), gold, 31).transform;
+
+            beam = Group("VisibleSpotlight", world, Vector2.zero);
+            var beamLine = Line("Cone", beam, 1f, new Color(1f, 0.81f, 0.4f, 0.09f), 3, 2);
+            beamLine.sharedMaterial = lineOverlayMaterial;
+            beamLine.numCapVertices = 0;
+            beamLine.startWidth = 0.48f;
+            beamLine.endWidth = 2.9f;
+            beamLine.SetPosition(0, new Vector3(0, 5.8f, 0));
+            beamLine.SetPosition(1, new Vector3(0, 0.85f, 0));
+            pool = Disc("LightPool", world, new Vector2(5.85f, 1.05f), new Vector2(2.95f, 0.4f), new Color(1f, 0.8f, 0.4f, 0.16f), 2, true);
+            for (int i = 0; i < 11; i++)
+            {
+                Sprite art = audienceArt != null && audienceArt.Length > 0 ? audienceArt[i % audienceArt.Length] : circle;
+                var spectator = Sprite("Audience", world, art, new Vector2(0.4f + i * 0.92f, -0.04f), new Vector2(0.8f, 0.67f), Hex(0x33263C), 45);
+                spectator.sharedMaterial = overlayMaterial;
+            }
+            BuildHud();
+        }
+
+        public void UseRuntimeFont()
+        {
+            if (Application.platform == RuntimePlatform.WebGLPlayer) return;
+            runtimeFont = Font.CreateDynamicFontFromOSFont(new[] { "Microsoft YaHei", "Noto Sans CJK SC", "PingFang SC", "Arial Unicode MS", "Arial" }, 22);
+            if (runtimeFont == null) return;
+            foreach (var text in GetComponentsInChildren<Text>(true)) text.font = runtimeFont;
+        }
+
+        public bool Chinese => Application.platform != RuntimePlatform.WebGLPlayer && runtimeFont != null && runtimeFont.HasCharacter('兔');
+
+        void BuildHud()
+        {
+            var ui = new GameObject("RabbitHUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            ui.transform.SetParent(transform, false);
+            ui.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            ui.GetComponent<Canvas>().sortingOrder = 100;
+            ui.GetComponent<Canvas>().overrideSorting = true;
+            var scaler = ui.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1600, 900);
+            scaler.matchWidthOrHeight = 0.5f;
+            var parent = ui.transform;
+            Label("Title", parent, new Vector2(35, -24), new Vector2(470, 40), "SLEIGHT  /  THE RABBIT", 25, cream);
+            handLabel = Label("ActiveHand", parent, new Vector2(35, -112), new Vector2(600, 34), "LEFT HAND", 21, teal);
+            var panel = Panel("Steps", parent, new Vector2(-445, -22), new Vector2(420, 210), new Color(0.07f, 0.055f, 0.11f, 0.93f), true);
+            Label("StepsTitle", panel.transform, new Vector2(20, -13), new Vector2(375, 30), "THE TRICK / FIRST ACT", 18, gold);
+            string[] names = { "01  SHOW THE EMPTY BOX", "02  HIDE THE RABBIT", "03  REVEAL THE RABBIT" };
+            for (int i = 0; i < 3; i++)
+            {
+                stepBars[i] = Panel("StepBar", panel.transform, new Vector2(18, -55 - i * 47), new Vector2(4, 28), teal);
+                stepLabels[i] = Label("Step", panel.transform, new Vector2(34, -53 - i * 47), new Vector2(365, 32), names[i], 20, cream);
+            }
+            showProgress = Panel("ShowProgress", panel.transform, new Vector2(34, -86), new Vector2(340, 3), teal);
+            showProgress.type = Image.Type.Filled;
+            showProgress.fillMethod = Image.FillMethod.Horizontal;
+            gazeLabel = Label("Gaze", parent, new Vector2(-445, -243), new Vector2(420, 32), "WATCH THE LIGHT", 19, gold, true);
+            distractionProgress = Panel("DanceTime", parent, new Vector2(-445, -278), new Vector2(420, 4), teal, true);
+            distractionProgress.type = Image.Type.Filled;
+            distractionProgress.fillMethod = Image.FillMethod.Horizontal;
+            hintLabel = Label("Hint", parent, new Vector2(130, -750), new Vector2(1340, 50), "", 23, cream);
+            hintLabel.alignment = TextAnchor.MiddleCenter;
+            controls = Label("Controls", parent, new Vector2(100, -824), new Vector2(1400, 40), "ARROWS / WASD  Move hand     F  Switch hand     E  Grab / release / pass     R  Restart", 19, new Color(0.8f, 0.76f, 0.85f));
+            controls.alignment = TextAnchor.MiddleCenter;
+            resultPanel = Panel("Result", parent, new Vector2(340, -300), new Vector2(920, 250), new Color(0.07f, 0.05f, 0.11f, 0.97f)).gameObject;
+            resultTitle = Label("ResultTitle", resultPanel.transform, new Vector2(40, -30), new Vector2(840, 70), "", 38, cream);
+            resultTitle.alignment = TextAnchor.MiddleCenter;
+            resultBody = Label("ResultBody", resultPanel.transform, new Vector2(40, -118), new Vector2(840, 100), "", 23, cream);
+            resultBody.alignment = TextAnchor.MiddleCenter;
+            resultPanel.SetActive(false);
+            flash = Panel("CaughtFlash", parent, Vector2.zero, new Vector2(1600, 900), new Color(1, 0.7f, 0.6f, 0));
+            endingLabel = resultTitle;
+        }
+
+        public void Draw(RabbitTrickGame game)
+        {
+            box.position = new Vector3(game.BoxX, BoxBase, 0);
+            magician.position = new Vector3(game.Hands.BodyPosition.x, game.Hands.BodyPosition.y, -0.2f);
+            magician.GetComponent<SpriteRenderer>().sortingOrder = game.Hands.BodyPosition.y > 1.4f ? 10 : 24;
+            lid.localRotation = Quaternion.Euler(0, 0, game.LidAmount * 70f);
+            emptyWindow.enabled = game.LidAmount > 0.4f;
+            rabbit.position = game.RabbitPosition;
+            rabbit.gameObject.SetActive(!game.Rules.RabbitInside || game.LidAmount > 0.75f || game.Rules.Finished);
+            if (game.Rules.RabbitInside)
+            {
+                rabbit.position = new Vector3(game.BoxX, 2.19f, 0);
+                rabbit.localScale = Vector3.one * 0.85f;
+            }
+            else rabbit.localScale = Vector3.one;
+            beam.position = new Vector3(game.Audience.X, 0, 0);
+            pool.transform.position = new Vector3(game.Audience.X, 1.05f, 0);
+            for (int i = 0; i < 2; i++)
+            {
+                Vector2 hand = game.Hands.Hands[i].position;
+                gloves[i].position = hand;
+                handRings[i].enabled = i == game.Hands.Active;
+                float pulse = 1f + 0.06f * Mathf.Sin(Time.time * 6);
+                handRings[i].transform.localScale = new Vector3(0.53f / circle.bounds.size.x, 0.53f / circle.bounds.size.y, 1) * pulse;
+                Vector3 shoulder = game.Hands.Shoulder(i);
+                arms[i].SetPosition(0, shoulder);
+                arms[i].SetPosition(1, game.Hands.Elbow(i));
+                arms[i].SetPosition(2, hand);
+                arms[i].sortingOrder = game.Hands.BodyPosition.y > 1.4f ? 12 : 25;
+            }
+            float dance = game.Audience.Dancing ? Mathf.Sin(Time.time * 10) : 0;
+            dancer.localRotation = Quaternion.identity;
+            dancer.position = new Vector3(game.Audience.DancerX, 1.4f, -0.35f);
+            dancerBase.position = new Vector3(game.Audience.DancerX, 1.3f, -0.35f);
+            dancerHandle.position = game.DancerHandle;
+            for (int i = 0; i < 4; i++)
+            {
+                float side = i % 2 == 0 ? -1 : 1;
+                bool leg = i >= 2;
+                dancerLimbs[i].SetPosition(0, new Vector3(side * 0.19f, leg ? 0.1f : 1.15f, 0));
+                dancerLimbs[i].SetPosition(1, new Vector3(side * (leg ? 0.33f : 0.78f), (leg ? -0.14f : 0.83f) + dance * side * 0.15f, 0));
+            }
+            UpdateHud(game);
+        }
+
+        void UpdateHud(RabbitTrickGame game)
+        {
+            bool zh = Chinese;
+            string[] names = zh ? new[] { "01  向观众展示空箱", "02  在暗处藏入兔子并关箱", "03  当着观众开箱变兔子" }
+                : new[] { "01  SHOW THE EMPTY BOX", "02  HIDE RABBIT + CLOSE BOX", "03  REVEAL UNDER THE LIGHT" };
+            int step = (int)game.Rules.Step;
+            for (int i = 0; i < 3; i++)
+            {
+                stepLabels[i].text = (i < step ? (zh ? "完成  " : "DONE  ") : "") + names[i];
+                stepLabels[i].color = i < step ? teal : i == step ? cream : new Color(0.5f, 0.46f, 0.56f);
+                stepBars[i].color = i <= step ? teal : new Color(0.25f, 0.22f, 0.3f);
+            }
+            showProgress.fillAmount = game.Rules.EmptyShowProgress;
+            handLabel.text = zh ? (game.Hands.Active == 0 ? "正在控制：左手" : "正在控制：右手") + "    F 切换    E 抓取 / 松开"
+                : (game.Hands.Active == 0 ? "LEFT HAND" : "RIGHT HAND") + "    F SWITCH    E GRAB / RELEASE";
+            gazeLabel.text = game.Audience.Dancing
+                ? (zh ? "跳舞小人吸引中  " : "DISTRACTED  ") + Mathf.CeilToInt(game.Audience.DanceRemaining) + "s"
+                : (zh ? (game.Audience.Moving ? "观众正在转移目光" : "观众正看着亮处") : "WATCH THE MOVING LIGHT");
+            distractionProgress.fillAmount = game.Audience.DanceRemaining / 12f;
+            if (game.Audience.Dancing && game.Audience.CoversRabbit(game.RabbitPosition) && game.Audience.Illuminates(game.RabbitPosition))
+                gazeLabel.text += zh ? "  ·  兔子被遮住了" : "  / RABBIT COVERED";
+            hintLabel.text = game.Hint(zh);
+            controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     E  抓取 / 松开 / 交接     R  重试"
+                : "WASD Walk     ARROWS Hand     F Switch     E Grab / release / pass     R Retry";
+            resultPanel.SetActive(game.Rules.Failed || game.Rules.Finished);
+            if (game.Rules.Failed)
+            {
+                resultTitle.text = zh ? "露馅了！" : "CAUGHT!";
+                resultBody.text = zh ? game.Rules.FailureReason + "\n按 R 重试这场魔术" : "The audience saw the secret.\nPress R to try again.";
+            }
+            else if (game.Rules.Finished)
+            {
+                resultTitle.text = zh ? "空箱变出了兔子！" : "A RABBIT FROM AN EMPTY BOX!";
+                resultBody.text = zh ? "第一场魔术成功  ·  按 R 再演一次" : "FIRST TRICK COMPLETE  /  PRESS R TO REPLAY";
+            }
+            var c = flash.color;
+            c.a = game.Rules.Failed ? Mathf.Max(0, 0.45f - game.ResultAge) : 0;
+            flash.color = c;
+        }
+
+        Transform Group(string name, Transform parent, Vector2 position)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = position;
+            return go.transform;
+        }
+
+        SpriteRenderer Rect(string name, Transform parent, Vector2 position, Vector2 size, Color color, int order) =>
+            Sprite(name, parent, square, position, size, color, order);
+
+        SpriteRenderer Disc(string name, Transform parent, Vector2 position, Vector2 size, Color color, int order, bool unlit = false)
+        {
+            var sr = Sprite(name, parent, circle, position, size, color, order);
+            if (unlit) sr.sharedMaterial = overlayMaterial;
+            return sr;
+        }
+
+        SpriteRenderer Sprite(string name, Transform parent, Sprite art, Vector2 position, Vector2 size, Color color, int order)
+        {
+            Transform child = Group(name, parent, position);
+            var sr = child.gameObject.AddComponent<SpriteRenderer>();
+            sr.sprite = art;
+            sr.sharedMaterial = stageMaterial;
+            sr.color = color;
+            sr.sortingOrder = order;
+            if (order <= -24) child.localPosition = new Vector3(position.x, position.y, 3f);
+            if (art != null)
+                child.localScale = new Vector3(size.x / Mathf.Max(0.01f, art.bounds.size.x), size.y / Mathf.Max(0.01f, art.bounds.size.y), 1);
+            return sr;
+        }
+
+        LineRenderer Line(string name, Transform parent, float width, Color color, int order, int count)
+        {
+            var go = Group(name, parent, Vector2.zero).gameObject;
+            var line = go.AddComponent<LineRenderer>();
+            line.useWorldSpace = false;
+            line.sharedMaterial = lineMaterial;
+            line.positionCount = count;
+            line.startWidth = line.endWidth = width;
+            line.startColor = line.endColor = color;
+            line.sortingOrder = order;
+            line.numCapVertices = 5;
+            return line;
+        }
+
+        Image Panel(string name, Transform parent, Vector2 position, Vector2 size, Color color, bool right = false)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(right ? 1 : 0, 1);
+            rt.pivot = new Vector2(0, 1);
+            rt.anchoredPosition = position;
+            rt.sizeDelta = size;
+            var image = go.GetComponent<Image>();
+            image.sprite = square;
+            image.color = color;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        Text Label(string name, Transform parent, Vector2 position, Vector2 size, string value, int fontSize, Color color, bool right = false)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Text));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(right ? 1 : 0, 1);
+            rt.pivot = new Vector2(0, 1);
+            rt.anchoredPosition = position;
+            rt.sizeDelta = size;
+            var text = go.GetComponent<Text>();
+            text.font = interfaceFont;
+            text.fontSize = fontSize;
+            text.color = color;
+            text.text = value;
+            text.raycastTarget = false;
+            return text;
+        }
+
+        static Color Hex(uint rgb) => new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 255);
+    }
+}
