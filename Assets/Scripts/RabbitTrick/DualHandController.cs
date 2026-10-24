@@ -31,7 +31,7 @@ namespace Sleight.RabbitTrick
         }
         public void ResetHands()
         {
-            Active = 0; BodyPosition = new Vector2(3.85f, 1.18f);
+            Active = 0; BodyPosition = new Vector2(3.85f, 1.18f); rabbitGrip = Vector2.down * 0.12f;
             for (int i = 0; i < 2; i++) { Hands[i].position = BodyPosition + new Vector2(i == 0 ? -0.62f : 0.62f, 0.85f); Hands[i].holding = HandItem.None; }
         }
         public void Tick(RabbitTrickGame game, float dt)
@@ -116,7 +116,9 @@ namespace Sleight.RabbitTrick
             return Shoulder(index) + Vector2.ClampMagnitude(delta, Reach);
         }
         bool InReach(int index, Vector2 position) => Vector2.Distance(Shoulder(index), position) <= Reach;
-        void UpdateRabbit(RabbitTrickGame game) { foreach (var hand in Hands) if (hand.holding == HandItem.Rabbit) game.RabbitPosition = hand.position + Vector2.down * 0.12f; }
+        // 抓住兔子时记下手和兔子的相对位置，拿着走的时候保持不变，兔子不会一下跳到手心。
+        Vector2 rabbitGrip = Vector2.down * 0.12f;
+        void UpdateRabbit(RabbitTrickGame game) { foreach (var hand in Hands) if (hand.holding == HandItem.Rabbit) game.RabbitPosition = hand.position + rabbitGrip; }
         // 按一下切换抓 / 放（编辑器里的自动验证用）；玩家实际操作走 Grab / Release。
         public void Interact(RabbitTrickGame game)
         {
@@ -145,7 +147,8 @@ namespace Sleight.RabbitTrick
             if (hand.holding != HandItem.None) return;
             if (Other.holding == HandItem.Rabbit && Vector2.Distance(hand.position, game.RabbitPosition) <= rabbitGrabRadius + 0.1f)
             {
-                Other.holding = HandItem.None; hand.holding = HandItem.Rabbit; UpdateRabbit(game);
+                Other.holding = HandItem.None; hand.holding = HandItem.Rabbit;
+                rabbitGrip = Vector2.ClampMagnitude(game.RabbitPosition - hand.position, 0.6f); UpdateRabbit(game);
                 game.Notify("兔子已交到" + (Active == 0 ? "左手" : "右手") + "，按住 E 别松"); return;
             }
             HandItem nearest = HandItem.None; float distance = float.MaxValue;
@@ -160,7 +163,7 @@ namespace Sleight.RabbitTrick
             Check(HandItem.Dancer, game.DancerHandle, ref nearest, ref distance);
             if (nearest != HandItem.None && Other.holding == nearest) nearest = HandItem.None;
             hand.holding = nearest;
-            if (nearest == HandItem.Rabbit) { game.Rules.TouchRabbit(); UpdateRabbit(game); }
+            if (nearest == HandItem.Rabbit) { rabbitGrip = game.RabbitPosition - hand.position; game.Rules.TouchRabbit(); UpdateRabbit(game); }
             else if (nearest == HandItem.Lid) hand.position = game.LidHandle;
             else if (nearest == HandItem.Box) hand.position = game.BoxHandle;
             else if (nearest == HandItem.Dancer) hand.position = game.DancerHandle;
