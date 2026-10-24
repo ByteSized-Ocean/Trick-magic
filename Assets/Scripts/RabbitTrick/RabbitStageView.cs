@@ -37,6 +37,8 @@ namespace Sleight.RabbitTrick
         [SerializeField] Image patienceFill, patienceBack;
         [SerializeField] Text stepsTitle;
         public Transform World => world;
+        public Transform HudCanvas => hintLabel != null ? hintLabel.transform.parent : null;
+        public Font HudFont => hintLabel != null ? hintLabel.font : interfaceFont;
         public float[] GloveAlpha { get; } = { 1f, 1f };   // 关卡可以把藏起来的手画淡（如悬浮术里桌布下的那只手）
         [SerializeField] LineRenderer beamLine;
         static readonly Color BeamColor = new Color(1f, 0.81f, 0.4f, 0.09f);
@@ -662,7 +664,7 @@ namespace Sleight.RabbitTrick
                 demoBanner.font = font;
                 demoBanner.alignment = TextAnchor.MiddleCenter;
             }
-            demoBanner.gameObject.SetActive(game.InDemo);
+            demoBanner.gameObject.SetActive(false);   // 演示改在老电视里放（DemoTelevision），这条横幅不再显示
             if (!game.InDemo) return;
             demoBanner.text = "DEMO  ·  " + Ordinal(game.Level + 1).ToUpper() + " TRICK: " + game.TrickName;
             var c = gold;
@@ -737,6 +739,12 @@ namespace Sleight.RabbitTrick
                 gazeLabel.text += zh ? "  ·  兔子被遮住了" : "  / RABBIT COVERED";
             hintLabel.text = game.InDemo ? game.DemoCaption : game.Hint(zh);
             DrawDemoBanner(game);
+            if (Application.isPlaying)
+            {
+                var tv = GetComponent<DemoTelevision>();
+                if (tv == null) tv = gameObject.AddComponent<DemoTelevision>();
+                tv.Show(game.InDemo, this, "HOW TO PERFORM THE " + Ordinal(game.Level + 1).ToUpper() + " TRICK:  " + game.TrickName, game.DemoCaption);
+            }
             if (game.InDemo) controls.text = "HOW TO PLAY THIS TRICK  /  PRESS ANY KEY TO SKIP";
             else controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     按住 E  抓取（松开放下）     R  重试"
                 : "WASD  Walk     ARROWS  Move hand     F  Switch hand     Hold E  Grab (let go to drop)     R  Retry";

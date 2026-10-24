@@ -16,7 +16,9 @@ namespace Sleight.RabbitTrick
         // 三关，难度逐级递增。第 1 关是原来的空箱变兔子（Trick == null），第 2、3 关各是一个 StageTrick。
         public const int LevelCount = 3;
         readonly StageTrick[] tricks = { null, new TrunkTrick(), new LevitationTrick() };
-        static readonly float[] PatienceByLevel = { 50f, 45f, 40f };
+        static readonly float[] PatienceByLevel = { 50f, 90f, 40f };
+        // 追光偏向舞台左边的程度：去左边的机会、在左边停多久（最短 / 最长秒）。第 2 关柜子在中间，要给足暗处换人的时间
+        static readonly Vector3[] LeftBiasByLevel = { Vector3.zero, new Vector3(0.75f, 7f, 11f), Vector3.zero };
         // 追光：停留最短 / 最长、移动最短 / 最长（秒），逐关更快
         static readonly Vector4[] PaceByLevel = { new Vector4(2.8f, 4.6f, 1.1f, 1.7f), new Vector4(2.2f, 3.6f, 0.9f, 1.4f), new Vector4(1.8f, 3.0f, 0.7f, 1.1f) };
         public StageTrick Trick => tricks[Mathf.Clamp(Level, 0, tricks.Length - 1)];
@@ -145,6 +147,8 @@ namespace Sleight.RabbitTrick
             patienceSeconds = PatienceByLevel[Mathf.Clamp(Level, 0, PatienceByLevel.Length - 1)];
             var pace = PaceByLevel[Mathf.Clamp(Level, 0, PaceByLevel.Length - 1)];
             Audience.SetPace(pace.x, pace.y, pace.z, pace.w);
+            var bias = LeftBiasByLevel[Mathf.Clamp(Level, 0, LeftBiasByLevel.Length - 1)];
+            Audience.SetLeftBias(bias.x, bias.y, bias.z);
             Hands.ResetHands();
             // 第 2、3 关的道具在运行时才搭；编辑器里重建场景时不搭，免得存进场景、运行时又搭一份
             if (Application.isPlaying || SimulateInEditor)
