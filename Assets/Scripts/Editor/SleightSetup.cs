@@ -108,6 +108,33 @@ namespace Sleight.EditorTools
             else Debug.LogWarning($"[SleightSetup] URP 资源上没有 {name}，请手动检查");
         }
 
+        static Material ConeMaterial()
+        {
+            Directory.CreateDirectory(MaterialDir);
+            string path = $"{MaterialDir}/M_LightCone.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            // 透明、双面、不写深度的 Unlit。
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_Cull", (float)CullMode.Off);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+            mat.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.renderQueue = (int)RenderQueue.Transparent;
+            mat.SetColor("_BaseColor", new Color(1f, 0.824f, 0.118f, 0.35f));
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
         static Material LitMaterial(string name, Color color)
         {
             Directory.CreateDirectory(MaterialDir);
@@ -253,20 +280,34 @@ namespace Sleight.EditorTools
             Box("Wing_R", stage, new Vector3(10.1f, 3.0f, 2.2f), new Vector3(0.6f, 4.4f, 0.1f), wing);
             Box("Valance", stage, new Vector3(5f, 5.15f, -0.6f), new Vector3(13f, 0.9f, 0.1f), wing);   // 檐幕，压住布景天顶以上
 
-            // 追光：一盏真的黄色 Spot Light，从台前上方打下来，只沿 x 平移（Spotlight.cs）。
+            // 追光：从正上方往下打的圆锥。父物体只沿 x 平移（Spotlight.cs），
+            // 子物体一盏朝下的 Spot Light 负责照亮，一个半透明截头圆锥负责画出光柱。
             var lights = new GameObject("Spotlights").transform;
             var spotGo = new GameObject("Light_Main");
             spotGo.transform.SetParent(lights, false);
-            spotGo.transform.position = new Vector3(2.5f, 6.5f, -3f);
-            spotGo.transform.LookAt(new Vector3(2.5f, 2.6f, 4.0f));   // 打在角色身后的天幕上，剪影和影子都更清楚
-            var beam = spotGo.AddComponent<Light>();
+            spotGo.transform.position = new Vector3(2.5f, 10.6f, 0f);
+
+            var beamGo = new GameObject("Beam");
+            beamGo.transform.SetParent(spotGo.transform, false);
+            beamGo.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            var beam = beamGo.AddComponent<Light>();
             beam.type = LightType.Spot;
             beam.color = SpotYellow;
-            beam.intensity = 160f;
-            beam.range = 25f;
-            beam.spotAngle = 34f;
-            beam.innerSpotAngle = 31f;
+            beam.intensity = 220f;
+            beam.range = 20f;
+            beam.spotAngle = 30f;       // 地面光圈半径 ≈ 2.5，和光柱底面一致
+            beam.innerSpotAngle = 28f;
             beam.shadows = LightShadows.Hard;
+
+            var coneGo = new GameObject("Cone", typeof(MeshFilter), typeof(MeshRenderer));
+            coneGo.transform.SetParent(spotGo.transform, false);
+            var coneRenderer = coneGo.GetComponent<MeshRenderer>();
+            coneRenderer.sharedMaterial = ConeMaterial();
+            coneRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            coneRenderer.receiveShadows = false;
+            coneRenderer.sortingLayerName = "BG";   // 画在剪影后面，剪影保持纯黑
+            coneGo.AddComponent<LightCone>();
+
             var spotlight = spotGo.AddComponent<Spotlight>();
 
             var props = new GameObject("Props").transform;

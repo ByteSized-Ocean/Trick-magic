@@ -19,6 +19,7 @@ namespace Sleight
         int arrivals;           // 已发出的落定次数
         SpriteRenderer sr;
         Light beam;
+        LightCone cone;
         float fullIntensity;
         bool running;
 
@@ -27,7 +28,8 @@ namespace Sleight
         void Awake()
         {
             sr = GetComponent<SpriteRenderer>();
-            beam = GetComponent<Light>();
+            beam = GetComponentInChildren<Light>();
+            cone = GetComponentInChildren<LightCone>();
             if (beam != null) fullIntensity = beam.intensity;
         }
 
@@ -91,6 +93,7 @@ namespace Sleight
                 sr.color = c;
             }
             if (beam != null) beam.intensity = fullIntensity * k;
+            if (cone != null) cone.SetBrightness(k);
         }
 
         // 由 ActRunner 在每帧第 3 步调用（§17.2）。
