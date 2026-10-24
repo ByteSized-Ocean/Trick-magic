@@ -65,6 +65,8 @@ namespace Sleight.RabbitTrick.EditorTools
             view.audienceArt = new Sprite[6];
             for (int i = 0; i < view.audienceArt.Length; i++)
                 view.audienceArt[i] = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/Art/Sprites/audience_{i:00}.png");
+            view.glowSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Sprites/fx_glow.png");
+            view.flameSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Sprites/fx_flame.png");
             view.audienceBodies = new Sprite[7];
             view.audienceHeads = new Sprite[7];
             for (int i = 0; i < 7; i++)

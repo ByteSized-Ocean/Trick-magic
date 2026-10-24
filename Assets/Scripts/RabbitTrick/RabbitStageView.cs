@@ -12,6 +12,8 @@ namespace Sleight.RabbitTrick
         public Sprite[] audienceBodies;   // 观众背影：身体和头分开，头绕脖子转（gen_art.py）
         public Sprite[] audienceHeads;
         public StageCurtains curtains;
+        public Sprite glowSprite;    // 柔光（fx_glow），没有就退回硬边圆
+        public Sprite flameSprite;   // 火苗（fx_flame）
         public Material stageMaterial;
         public Material magicianMaterial;
         public Material overlayMaterial;
@@ -39,10 +41,15 @@ namespace Sleight.RabbitTrick
         [SerializeField] Transform[] shoes = new Transform[2];
         [SerializeField] Transform[] audienceHeadPivots = new Transform[0];
         [SerializeField] float[] audienceFollow = new float[0];
+        [SerializeField] Transform[] torchFlames = new Transform[0];
+        [SerializeField] Transform[] torchCores = new Transform[0];
+        [SerializeField] SpriteRenderer[] torchGlows = new SpriteRenderer[0];
+        [SerializeField] SpriteRenderer[] torchWallGlows = new SpriteRenderer[0];
         Font runtimeFont;
         Vector2 lastBody;
         float walkPhase, walkBlend;
         bool facingLeft, hasLastBody;
+        Vector3 bodyOffset;   // 走路起伏，身体、肩膀、腿共用
         const float HipHeight = 0.78f, Thigh = 0.41f, Shin = 0.41f, Stride = 0.62f;
         readonly Color cream = new Color32(242, 222, 188, 255);
         readonly Color teal = new Color32(100, 220, 199, 255);
@@ -161,12 +168,22 @@ namespace Sleight.RabbitTrick
                 Disc("PaintedHill", world, new Vector2(hills[i], 2.3f), new Vector2(2.2f + (i % 3) * 0.5f, 0.9f + (i % 2) * 0.35f), Hex(0x3D3449), -28);
             var stars = new[] { new Vector2(1.4f, 4.5f), new Vector2(2.6f, 4.1f), new Vector2(3.7f, 4.7f), new Vector2(5.1f, 4.4f), new Vector2(8.4f, 4.6f), new Vector2(9.2f, 3.9f), new Vector2(6.1f, 4.8f) };
             foreach (var p in stars) Disc("PaintedStar", world, p, new Vector2(0.05f, 0.05f), Hex(0x9C8FA8), -27);
+            // 两支壁挂火把：木柄 + 金色托架 + 会跳的火苗，墙上一圈随火苗忽明忽暗的暖光（Draw 里每帧更新）。
+            torchFlames = new Transform[2];
+            torchCores = new Transform[2];
+            torchGlows = new SpriteRenderer[2];
+            torchWallGlows = new SpriteRenderer[2];
             for (int side = 0; side < 2; side++)
             {
                 float x = side == 0 ? 1.55f : 8.45f;
-                Disc("SconceGlow", world, new Vector2(x, 3.55f), new Vector2(0.6f, 0.6f), new Color(1f, 0.75f, 0.4f, 0.12f), -26, true);
-                Rect("SconceArm", world, new Vector2(x, 3.35f), new Vector2(0.04f, 0.3f), gold, -26);
-                Disc("SconceBulb", world, new Vector2(x, 3.55f), new Vector2(0.12f, 0.16f), Hex(0xF6D08A), -25, true);
+                torchWallGlows[side] = Glow("TorchWallGlow", new Vector2(x, 3.7f), 2.4f, new Color(1f, 0.62f, 0.28f, 0.16f), -26);
+                Rect("TorchBracket", world, new Vector2(x, 3.18f), new Vector2(0.22f, 0.04f), gold, -25);
+                var handle = Rect("TorchHandle", world, new Vector2(x, 3.36f), new Vector2(0.06f, 0.4f), Hex(0x5A3A28), -25);
+                handle.transform.localRotation = Quaternion.Euler(0, 0, side == 0 ? -8f : 8f);
+                Rect("TorchCup", world, new Vector2(x + (side == 0 ? 0.02f : -0.02f), 3.57f), new Vector2(0.14f, 0.07f), gold, -24);
+                torchGlows[side] = Glow("TorchGlow", new Vector2(x, 3.78f), 0.9f, new Color(1f, 0.7f, 0.35f, 0.35f), -23);
+                torchFlames[side] = Flame("TorchFlame", new Vector2(x, 3.6f), new Vector2(0.17f, 0.3f), Hex(0xF08A2E), -22);
+                torchCores[side] = Flame("TorchFlameCore", new Vector2(x, 3.61f), new Vector2(0.09f, 0.17f), Hex(0xFFE7A6), -21);
             }
             Rect("FloorBackShade", world, new Vector2(5, 1.76f), new Vector2(10, 0.16f), new Color(0, 0, 0, 0.25f), -24);
             for (int i = 0; i < 22; i++)   // 檐幕下沿的扇形垂边
@@ -178,9 +195,57 @@ namespace Sleight.RabbitTrick
             for (int i = 0; i < 12; i++)   // 台口脚灯
             {
                 var p = new Vector2(0.55f + i * 0.81f, 0.8f);
-                Disc("FootlightGlow", world, p + Vector2.up * 0.06f, new Vector2(0.42f, 0.2f), new Color(1f, 0.78f, 0.45f, 0.14f), -22, true);
+                var fg = Glow("FootlightGlow", p + Vector2.up * 0.08f, 0.55f, new Color(1f, 0.78f, 0.45f, 0.22f), -22);
+                fg.transform.localScale = new Vector3(fg.transform.localScale.x, fg.transform.localScale.y * 0.5f, 1f);
                 Disc("Footlight", world, p, new Vector2(0.14f, 0.08f), Hex(0xF3D293), -21, true);
             }
+        }
+
+        SpriteRenderer Glow(string name, Vector2 position, float size, Color color, int order)
+        {
+            var sr = Sprite(name, world, glowSprite != null ? glowSprite : circle, position, new Vector2(size, size), color, order);
+            sr.sharedMaterial = overlayMaterial;
+            return sr;
+        }
+
+        Transform Flame(string name, Vector2 position, Vector2 size, Color color, int order)
+        {
+            // 火苗的 pivot 在底部，跳动时根部不动、火尖晃
+            var pivot = Group(name, world, position);
+            var sr = Sprite("Shape", pivot, flameSprite != null ? flameSprite : circle, new Vector2(0, size.y / 2f), size, color, order);
+            sr.sharedMaterial = overlayMaterial;
+            return pivot;
+        }
+
+        // 火把：两层噪声驱动火苗的高矮、宽窄、摆动和光晕亮度，两支火把各用各的噪声，不同步。
+        void DrawTorches()
+        {
+            float t = Time.time;
+            for (int i = 0; i < torchFlames.Length; i++)
+            {
+                if (torchFlames[i] == null) continue;
+                float slow = Mathf.PerlinNoise(t * 1.7f, i * 13.1f);
+                float fast = Mathf.PerlinNoise(t * 9.3f, i * 7.7f + 3f);
+                float flick = 0.6f * slow + 0.4f * fast;
+                float sway = (Mathf.PerlinNoise(t * 3.1f, i * 4.2f + 9f) - 0.5f) * 16f;
+                torchFlames[i].localScale = new Vector3(0.85f + 0.3f * fast, 0.75f + 0.55f * flick, 1f);
+                torchFlames[i].localRotation = Quaternion.Euler(0, 0, sway);
+                torchCores[i].localScale = new Vector3(0.8f + 0.25f * slow, 0.7f + 0.5f * fast, 1f);
+                torchCores[i].localRotation = Quaternion.Euler(0, 0, sway * 0.6f);
+                SetAlpha(torchGlows[i], 0.22f + 0.25f * flick, 0.85f + 0.3f * flick, 0.9f);
+                SetAlpha(torchWallGlows[i], 0.08f + 0.12f * slow, 0.9f + 0.2f * slow, 2.4f);
+            }
+        }
+
+        void SetAlpha(SpriteRenderer sr, float alpha, float scale, float baseSize)
+        {
+            if (sr == null) return;
+            var c = sr.color;
+            c.a = alpha;
+            sr.color = c;
+            var art = sr.sprite;
+            float k = baseSize * scale / Mathf.Max(0.01f, art.bounds.size.x);
+            sr.transform.localScale = new Vector3(k, k, 1f);
         }
 
         // 台下观众：一排黑色背影，压在画面底边。头绕脖子转，跟着光圈看（Draw 里每帧更新）。
@@ -195,7 +260,7 @@ namespace Sleight.RabbitTrick
             for (int i = 0; i < count; i++)
             {
                 float x = 0.4f + i * 0.92f + (float)(rng.NextDouble() - 0.5) * 0.18f;
-                float y = -0.32f - (float)rng.NextDouble() * 0.1f;
+                float y = 0.05f - (float)rng.NextDouble() * 0.1f;   // 头顶落在台口金边附近，压住舞台下沿
                 bool flip = rng.Next(2) == 0;
                 audienceFollow[i] = 1.5f + 3f * (float)rng.NextDouble();
                 if (hasArt)
@@ -212,9 +277,9 @@ namespace Sleight.RabbitTrick
                 }
                 else
                 {
-                    var body = Disc("AudienceBack", world, new Vector2(x, -0.05f), new Vector2(0.8f, 0.6f), Hex(0x120E18), 45, true);
-                    var head = Group("AudienceHeadPivot", world, new Vector2(x, 0.2f));
-                    Disc("AudienceHead", head, new Vector2(0, 0.2f), new Vector2(0.36f, 0.4f), Hex(0x120E18), 46, true);
+                    var body = Disc("AudienceBack", world, new Vector2(x, 0.3f), new Vector2(0.8f, 0.6f), Hex(0x3A3046), 45, true);
+                    var head = Group("AudienceHeadPivot", world, new Vector2(x, 0.55f));
+                    Disc("AudienceHead", head, new Vector2(0, 0.2f), new Vector2(0.36f, 0.4f), Hex(0x3A3046), 46, true);
                     audienceHeadPivots[i] = head;
                 }
             }
@@ -320,8 +385,9 @@ namespace Sleight.RabbitTrick
                 float pulse = 1f + 0.06f * Mathf.Sin(Time.time * 6);
                 handRings[i].transform.localScale = new Vector3(0.53f / circle.bounds.size.x, 0.53f / circle.bounds.size.y, 1) * pulse;
                 Vector3 shoulder = game.Hands.Shoulder(i);
-                arms[i].SetPosition(0, shoulder);
-                arms[i].SetPosition(1, game.Hands.Elbow(i));
+                // 袖子从身体真正的肩膀出发：跟着走路起伏一起动，否则胳膊和身体会脱开
+                arms[i].SetPosition(0, shoulder + bodyOffset);
+                arms[i].SetPosition(1, (Vector3)game.Hands.Elbow(i) + bodyOffset * 0.5f);
                 arms[i].SetPosition(2, hand);
                 arms[i].sortingOrder = game.Hands.BodyPosition.y > 1.4f ? 12 : 25;
             }
@@ -338,6 +404,7 @@ namespace Sleight.RabbitTrick
                 dancerLimbs[i].SetPosition(1, new Vector3(side * (leg ? 0.33f : 0.78f), (leg ? -0.14f : 0.83f) + dance * side * 0.15f, 0));
             }
             DrawAudience(game.Audience.X);
+            DrawTorches();
             UpdateHud(game);
         }
 
@@ -359,8 +426,8 @@ namespace Sleight.RabbitTrick
             float breathe = Mathf.Sin(Time.time * 2.2f) * 0.008f * (1f - walkBlend);
             var sr = magician.GetComponent<SpriteRenderer>();
             sr.flipX = facingLeft;
-            magician.position = new Vector3(body.x, body.y + bob + breathe, -0.2f);
-            magician.localRotation = Quaternion.Euler(0, 0, (facingLeft ? 1f : -1f) * 2.5f * walkBlend);   // 走路时身子微微前倾
+            bodyOffset = new Vector3(0f, bob + breathe, 0f);
+            magician.position = new Vector3(body.x, body.y, -0.2f) + bodyOffset;
             int baseOrder = body.y > 1.4f ? 10 : 24;
             sr.sortingOrder = baseOrder;
 

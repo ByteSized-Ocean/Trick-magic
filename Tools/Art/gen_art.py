@@ -63,9 +63,9 @@ class Canvas:
         self.details.append((color, m))
         return DetailLayer(m)
 
-    def render(self, rim=True, grain=6, seed=0):
+    def render(self, rim=True, grain=6, seed=0, fill=NEAR_BLACK, rim_color=WARM_BROWN):
         mask = self.mask.resize((self.w, self.h), Image.LANCZOS)
-        img = Image.new("RGBA", (self.w, self.h), NEAR_BLACK + (0,))
+        img = Image.new("RGBA", (self.w, self.h), fill + (0,))
         img.putalpha(mask)
 
         if rim:
@@ -73,7 +73,7 @@ class Canvas:
             hard = mask.point(lambda a: 255 if a > 128 else 0)
             shifted = ImageChops.offset(hard, -1, 1)
             edge = ImageChops.subtract(hard, shifted)
-            brown = Image.new("RGBA", img.size, WARM_BROWN + (255,))
+            brown = Image.new("RGBA", img.size, rim_color + (255,))
             img.paste(brown, (0, 0), edge)
             img.putalpha(mask)
 
@@ -482,6 +482,29 @@ def mirror(flipped):
     return c.render(seed=15 + flipped)
 
 
+def fx_glow():
+    """柔光：白色径向渐变，火把光晕和脚灯用（导入时用双线性过滤）。"""
+    n = 128
+    img = Image.new("RGBA", (n, n), (255, 255, 255, 0))
+    px = img.load()
+    for y in range(n):
+        for x in range(n):
+            r = math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / (n / 2)
+            a = max(0.0, 1.0 - r) ** 2
+            px[x, y] = (255, 255, 255, int(a * 255))
+    return img
+
+
+def fx_flame():
+    """火苗：底圆顶尖的水滴形，白色，颜色由 SpriteRenderer 染。"""
+    w, h = 32, 48
+    img = Image.new("RGBA", (w * S, h * S), (255, 255, 255, 0))
+    d = ImageDraw.Draw(img)
+    d.ellipse((4 * S, 22 * S, 28 * S, 46 * S), fill=(255, 255, 255, 255))
+    d.polygon([(5 * S, 32 * S), (16 * S, 0), (27 * S, 32 * S)], fill=(255, 255, 255, 255))
+    return img.resize((w, h), Image.LANCZOS).filter(ImageFilter.GaussianBlur(0.6))
+
+
 def ghost(img):
     """成品图虚影：同一剪影，换成纯旧纸色（GDD §0.2）。"""
     g = Image.new("RGBA", img.size, AGED_PAPER + (0,))
@@ -510,6 +533,8 @@ def marker_assist():
 # ---------------------------------------------------------------- 观众（台前一排后脑勺）
 
 AUDIENCE_KINDS = 7
+AUDIENCE_FILL = (58, 48, 70)
+AUDIENCE_RIM = (128, 104, 112)
 NECK_Y = 60   # 头与身体的分界（画布像素，自上而下）；头图的 pivot 就在这一行（导入规则里的 0.375）
 
 
@@ -541,7 +566,9 @@ def audience(kind):
         head.ellipse((40 - head_r - 8, hy - 6, 40 + head_r + 8, hy + 2))
         head.ellipse((40 - head_r + 2, hy - head_r - 12, 40 + head_r - 2, hy - 2))
     # kind 5：什么也不戴
-    return body.render(rim=False, seed=40 + kind), head.render(rim=False, seed=60 + kind)
+    # 不用纯黑：深灰紫的背影，顶上一道舞台反光描边，暗场里也看得见轮廓。
+    return (body.render(seed=40 + kind, fill=AUDIENCE_FILL, rim_color=AUDIENCE_RIM),
+            head.render(seed=60 + kind, fill=AUDIENCE_FILL, rim_color=AUDIENCE_RIM))
 
 
 # ---------------------------------------------------------------- 特效 / 标题
@@ -600,6 +627,8 @@ def main():
         save(img, name)
         save(ghost(img), "ghost_" + name)
     save(glove(), "player_hand")
+    save(fx_glow(), "fx_glow")
+    save(fx_flame(), "fx_flame")
     save(ring(), "hand_ring")
     save(marker_assist(), "prop_marker_assist")
     for k in range(AUDIENCE_KINDS):
