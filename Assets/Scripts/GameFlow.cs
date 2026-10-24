@@ -71,13 +71,15 @@ namespace Sleight
             hud.SetEyeVisible(false, Vector3.zero);
             yield return hud.FadeBlackTo(1f, 1.0f);
 
-            // TODO: 换成 title_card（纯图形，无字）。标题之后按空格或 E 从头再来。
+            // 标题卡（纯图形，无字），之后按空格或 E 从头再来。
+            hud.SetTitleVisible(true);
             while (true)
             {
                 var kb = Keyboard.current;
                 if (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.eKey.wasPressedThisFrame)) break;
                 yield return null;
             }
+            hud.SetTitleVisible(false);
             LoadAct(acts[0]);
             yield return hud.FadeBlackTo(0f, 0.25f);
         }

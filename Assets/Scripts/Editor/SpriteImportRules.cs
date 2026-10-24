@@ -6,6 +6,9 @@ namespace Sleight.EditorTools
     // GDD §18.6：Assets/Art 下的每一张图自动套用同一套导入设置，不用手动改。
     public class SpriteImportRules : AssetPostprocessor
     {
+        // 改了规则就加 1，Unity 会按新规则重新导入已有的图。
+        public override uint GetVersion() => 2;
+
         void OnPreprocessTexture()
         {
             if (!assetPath.StartsWith("Assets/Art/")) return;
@@ -29,7 +32,7 @@ namespace Sleight.EditorTools
         static SpriteAlignment PivotFor(string file)
         {
             if (file.StartsWith("spot_")) return SpriteAlignment.TopCenter;
-            if (file.StartsWith("player_") || file.StartsWith("prop_")) return SpriteAlignment.BottomCenter;
+            if (file.StartsWith("player_") || file.StartsWith("audience_") || (file.StartsWith("prop_") && !file.StartsWith("prop_marker"))) return SpriteAlignment.BottomCenter;
             return SpriteAlignment.Center;
         }
     }

@@ -15,6 +15,9 @@ namespace Sleight.EditorTools
         const string PlaceholderPath = "Assets/Art/Placeholder/Placeholder.asset";
         const string CirclePath = "Assets/Art/Placeholder/Circle.asset";
         const string PropPrefabPath = "Assets/Prefabs/P_Prop.prefab";
+        const string PrefabDir = "Assets/Prefabs";
+        const string SpriteDir = "Assets/Art/Sprites";
+        const string PostFxPath = "Assets/Settings/PostFX_Sleight.asset";
         const string PipelinePath = "Assets/Settings/UniversalRP_3D.asset";
         const string RendererPath = "Assets/Settings/UniversalRenderer_3D.asset";
         const string MaterialDir = "Assets/Art/Materials";
@@ -22,15 +25,17 @@ namespace Sleight.EditorTools
 
         static readonly string[] SortingLayers = { "BG", "Stage", "Props", "Player", "Light", "HUD", "Audience" };
 
-        // GDD §5.1 调色板
-        static readonly Color Silhouette = Hex(0x0B0B0C);
-        static readonly Color Wall = Hex(0x2E2E33);
-        static readonly Color Floor = Hex(0x55555C);
-        static readonly Color FootLine = Hex(0x7C7C84);
-        static readonly Color Divider = Hex(0x3A3A40);
+        // 团队定稿的调色板（取代 GDD §5.1 的灰色系）：近黑、暖棕、旧纸、深红，黄色只给追光。
+        static readonly Color Silhouette = Hex(0x0E0B0A);
+        static readonly Color Wall = Hex(0x1A1412);
+        static readonly Color Floor = Hex(0x4A3426);
+        static readonly Color FootLine = Hex(0x6B4E3A);
+        static readonly Color Divider = Hex(0x2A1E17);
+        static readonly Color Crimson = Hex(0x5A1418);
+        static readonly Color AgedPaper = Hex(0xD9CBB0);
         static readonly Color SpotYellow = Hex(0xFFD21E);
-        static readonly Color Ambient = Hex(0x5C5C66);   // 暗区要暗，追光才显眼
-        static readonly Color ClearColor = Hex(0x101012);
+        static readonly Color Ambient = Hex(0x4A3E36);   // 暗区要暗，追光才显眼；偏暖
+        static readonly Color ClearColor = Hex(0x0E0B0A);
 
         static Sprite centerSprite;
         static Sprite bottomSprite;
@@ -58,7 +63,7 @@ namespace Sleight.EditorTools
             EnsurePlaceholderSprites();
             EnsureCircleSprite();
             unlit = AssetDatabase.LoadAssetAtPath<Material>(UnlitMaterialPath);
-            shadowCaster = LitMaterial("M_ShadowCaster", Silhouette);
+            shadowCaster = ShadowMaterial();
             var propPrefab = EnsurePropPrefab();
             BuildScene(propPrefab);
             AssetDatabase.SaveAssets();
@@ -133,6 +138,121 @@ namespace Sleight.EditorTools
             mat.SetColor("_BaseColor", new Color(1f, 0.824f, 0.118f, 0.35f));
             EditorUtility.SetDirty(mat);
             return mat;
+        }
+
+        // 只投影子的材质：按剪影贴图的 alpha 裁剪，影子形状和剪影一致（SilhouetteShadow 每帧换贴图）。
+        static Material ShadowMaterial()
+        {
+            var mat = LitMaterial("M_ShadowCaster", Silhouette);
+            mat.SetFloat("_AlphaClip", 1f);
+            mat.SetFloat("_Cutoff", 0.5f);
+            mat.EnableKeyword("_ALPHATEST_ON");
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        static Material DustMaterial()
+        {
+            Directory.CreateDirectory(MaterialDir);
+            string path = $"{MaterialDir}/M_Dust.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 2f);   // 叠加
+            mat.SetFloat("_ZWrite", 0f);
+            mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (float)BlendMode.One);
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.renderQueue = (int)RenderQueue.Transparent;
+            if (circleSprite != null) mat.SetTexture("_BaseMap", circleSprite.texture);
+            mat.SetColor("_BaseColor", Color.white);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        static Sprite Art(string name) => AssetDatabase.LoadAssetAtPath<Sprite>($"{SpriteDir}/{name}.png");
+
+        static Sprite[] ArtFrames(string prefix, int count)
+        {
+            var frames = new Sprite[count];
+            for (int i = 0; i < count; i++)
+            {
+                frames[i] = Art($"{prefix}_{i:00}");
+                if (frames[i] == null) return null;
+            }
+            return frames;
+        }
+
+        static T SavePrefab<T>(GameObject go, string name) where T : Component
+        {
+            Directory.CreateDirectory(PrefabDir);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, $"{PrefabDir}/{name}.prefab");
+            Object.DestroyImmediate(go);
+            return prefab.GetComponent<T>();
+        }
+
+        // §18.3：按类型的道具预制体。缺图时返回 null，运行时退回色块占位 P_Prop。
+        static PropInteractable EnsureTypedPropPrefab(string name, string type, string wrong, string right)
+        {
+            var a = Art(wrong);
+            var b = Art(right);
+            if (a == null || b == null) return null;
+            var go = new GameObject(name);
+            AddSprite(go, a, Color.white, "Props", 0);
+            var prop = go.AddComponent<PropInteractable>();
+            prop.type = type;
+            prop.stateSprites = new[] { a, b };
+            go.AddComponent<SilhouetteShadow>().shadowMaterial = shadowCaster;
+            return SavePrefab<PropInteractable>(go, name);
+        }
+
+        static GameObject EnsureMarkerPrefab()
+        {
+            var sprite = Art("prop_marker_assist");
+            if (sprite == null) return null;
+            var go = new GameObject("P_Marker_Assist");
+            AddSprite(go, sprite, Color.white, "Stage", 0);
+            go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);   // 平铺在地板上
+            go.transform.localScale = new Vector3(1f, 3f, 1f);        // 相机俯角小，纵向拉长才看得见
+            return SavePrefab<Transform>(go, "P_Marker_Assist").gameObject;
+        }
+
+        static SpriteRenderer EnsureEyePrefab()
+        {
+            var sprite = Art("eye_flash");
+            if (sprite == null) return null;
+            var go = new GameObject("P_EyeFlash");
+            AddSprite(go, sprite, Color.white, "Light", 10);
+            return SavePrefab<SpriteRenderer>(go, "P_EyeFlash");
+        }
+
+        static PlayerController EnsurePlayerPrefab()
+        {
+            var go = new GameObject("P_Player");
+            var idle = ArtFrames("player_idle", 2);
+            if (idle != null)
+            {
+                AddSprite(go, idle[0], Color.white, "Player", 0);
+            }
+            else
+            {
+                AddSprite(go, bottomSprite, Silhouette, "Player", 0);
+                go.transform.localScale = new Vector3(1.0f, 3.0f, 1f);
+            }
+            go.AddComponent<SilhouetteShadow>().shadowMaterial = shadowCaster;
+            go.AddComponent<FrameAnim>();
+            var player = go.AddComponent<PlayerController>();
+            player.idleFrames = idle;
+            player.walkFrames = ArtFrames("player_walk", 4);
+            player.actFrames = ArtFrames("player_act", 2);
+            player.performFrames = ArtFrames("player_perform", 3);
+            player.caughtFrame = Art("player_caught_00");
+            return SavePrefab<PlayerController>(go, "P_Player");
         }
 
         static Material LitMaterial(string name, Color color)
@@ -275,10 +395,13 @@ namespace Sleight.EditorTools
             Box("FootLine", stage, new Vector3(5f, 0.995f, -0.99f), new Vector3(13f, 0.02f, 0.02f), LitMaterial("M_FootLine", FootLine));
             Box("Divider", stage, new Vector3(5f, 1.001f, 1.5f), new Vector3(0.03f, 0.002f, 5f), LitMaterial("M_Divider", Divider));
             Box("Backdrop", stage, new Vector3(5f, 3.6f, 4.0f), new Vector3(13f, 6f, 0.2f), LitMaterial("M_Wall", Wall));
-            var wing = LitMaterial("M_Wing", Hex(0x232327));
-            Box("Wing_L", stage, new Vector3(-0.1f, 3.0f, 2.2f), new Vector3(0.6f, 4.4f, 0.1f), wing);
-            Box("Wing_R", stage, new Vector3(10.1f, 3.0f, 2.2f), new Vector3(0.6f, 4.4f, 0.1f), wing);
-            Box("Valance", stage, new Vector3(5f, 5.15f, -0.6f), new Vector3(13f, 0.9f, 0.1f), wing);   // 檐幕，压住布景天顶以上
+            // 深红丝绒：台口两侧的大幕、后面一层侧幕、顶上的檐幕。
+            var velvet = LitMaterial("M_Velvet", Crimson);
+            Box("Drape_L", stage, new Vector3(-0.05f, 3.0f, -0.8f), new Vector3(0.8f, 4.8f, 0.1f), velvet);
+            Box("Drape_R", stage, new Vector3(10.05f, 3.0f, -0.8f), new Vector3(0.8f, 4.8f, 0.1f), velvet);
+            Box("Wing_L", stage, new Vector3(0.1f, 3.0f, 2.2f), new Vector3(0.9f, 4.6f, 0.1f), velvet);
+            Box("Wing_R", stage, new Vector3(9.9f, 3.0f, 2.2f), new Vector3(0.9f, 4.6f, 0.1f), velvet);
+            Box("Valance", stage, new Vector3(5f, 5.15f, -0.6f), new Vector3(13f, 0.9f, 0.1f), velvet);   // 檐幕，压住布景天顶以上
 
             // 追光：从正上方往下打的圆锥。父物体只沿 x 平移（Spotlight.cs），
             // 子物体一盏朝下的 Spot Light 负责照亮，一个半透明截头圆锥负责画出光柱。
@@ -307,21 +430,20 @@ namespace Sleight.EditorTools
             coneRenderer.receiveShadows = false;
             coneRenderer.sortingLayerName = "BG";   // 画在剪影后面，剪影保持纯黑
             coneGo.AddComponent<LightCone>();
+            BuildDust(spotGo.transform);
 
             var spotlight = spotGo.AddComponent<Spotlight>();
 
             var props = new GameObject("Props").transform;
 
-            var playerGo = new GameObject("Player");
-            playerGo.transform.position = new Vector3(0.8f, 1.0f, 0f);
-            playerGo.transform.localScale = new Vector3(1.0f, 3.0f, 1f);   // TODO: 换成 128×192 的玩家帧
-            AddSprite(playerGo, bottomSprite, Silhouette, "Player", 0);
-            playerGo.AddComponent<SilhouetteShadow>().shadowMaterial = shadowCaster;
-            playerGo.AddComponent<FrameAnim>();
-            var player = playerGo.AddComponent<PlayerController>();
+            var playerPrefab = EnsurePlayerPrefab();
+            var player = (PlayerController)PrefabUtility.InstantiatePrefab(playerPrefab);
+            player.name = "Player";
+            player.transform.position = new Vector3(0.8f, 1.0f, 0f);
             player.spotlight = spotlight;
 
-            BuildAudience();
+            BuildAudience(spotGo.transform);
+            BuildPostFx(camData);
 
             var hud = BuildHud();
 
@@ -336,41 +458,142 @@ namespace Sleight.EditorTools
             runner.hud = hud;
             runner.propsRoot = props;
             runner.propPrefab = propPrefab;
+            runner.boxPrefab = EnsureTypedPropPrefab("P_Prop_Box", "box", "prop_box_open", "prop_box_sealed");
+            runner.clothPrefab = EnsureTypedPropPrefab("P_Prop_Cloth", "cloth", "prop_cloth_off", "prop_cloth_on");
+            runner.mirrorPrefab = EnsureTypedPropPrefab("P_Prop_Mirror", "mirror", "prop_mirror_normal", "prop_mirror_flipped");
+            runner.markerPrefab = EnsureMarkerPrefab();
+            runner.eyePrefab = EnsureEyePrefab();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
         }
 
         // 台前观众：一排黑色剪影的后脑勺和肩膀，压在画面底边，比舞台离相机更近。
-        static void BuildAudience()
+        // 前排正中偏右坐着"他"，两只小眼睛反着光，跟着追光转（WatcherEyes）。
+        static void BuildAudience(Transform spotlight)
         {
             var root = new GameObject("Audience").transform;
             var rng = new System.Random(7);
+            var kinds = new Sprite[6];
+            for (int k = 0; k < kinds.Length; k++) kinds[k] = Art($"audience_{k:00}");
+            var watcherSprite = Art("audience_watcher");
+            var eyesSprite = Art("watcher_eyes");
+            bool hasArt = kinds[0] != null && watcherSprite != null;
+
             float x = 0.2f;
             int i = 0;
+            bool watcherPlaced = false;
             while (x < 10.4f)
             {
-                float jitter = (float)rng.NextDouble();
-                float headR = 0.21f + 0.06f * jitter;
-                float top = 0.85f + 0.2f * (float)rng.NextDouble();
                 var person = new GameObject($"Seat{++i}").transform;
                 person.SetParent(root, false);
-                person.position = new Vector3(x, 0f, -2f);
+                bool isWatcher = !watcherPlaced && x > 5.4f;
 
-                var shoulders = new GameObject("Shoulders");
-                shoulders.transform.SetParent(person, false);
-                shoulders.transform.localPosition = new Vector3(0f, -0.4f, 0f);
-                shoulders.transform.localScale = new Vector3(0.85f + 0.2f * jitter, top - 2f * headR + 0.45f, 1f);
-                AddSprite(shoulders, bottomSprite, Silhouette, "Audience", 0);
+                if (hasArt)
+                {
+                    person.position = new Vector3(x, -0.05f - 0.12f * (float)rng.NextDouble(), -2f);
+                    var sprite = isWatcher ? watcherSprite : kinds[rng.Next(kinds.Length)];
+                    var sr = AddSprite(person.gameObject, sprite, Color.white, "Audience", 0);
+                    sr.flipX = rng.Next(2) == 0;
+                    if (isWatcher && eyesSprite != null)
+                    {
+                        person.name = "Watcher";
+                        var eyes = new GameObject("Eyes");
+                        eyes.transform.SetParent(person, false);
+                        eyes.transform.localPosition = new Vector3(0f, (96f - 44f) / 64f, 0f);
+                        AddSprite(eyes, eyesSprite, Color.white, "Audience", 2);
+                        eyes.AddComponent<WatcherEyes>().spotlight = spotlight;
+                    }
+                }
+                else
+                {
+                    float jitter = (float)rng.NextDouble();
+                    float headR = 0.21f + 0.06f * jitter;
+                    float top = 0.85f + 0.2f * (float)rng.NextDouble();
+                    person.position = new Vector3(x, 0f, -2f);
 
-                var head = new GameObject("Head");
-                head.transform.SetParent(person, false);
-                head.transform.localPosition = new Vector3(0.03f * (jitter - 0.5f), top - headR, 0f);
-                head.transform.localScale = new Vector3(2f * headR, 2f * headR * 1.1f, 1f);
-                AddSprite(head, circleSprite, Silhouette, "Audience", 1);
+                    var shoulders = new GameObject("Shoulders");
+                    shoulders.transform.SetParent(person, false);
+                    shoulders.transform.localPosition = new Vector3(0f, -0.4f, 0f);
+                    shoulders.transform.localScale = new Vector3(0.85f + 0.2f * jitter, top - 2f * headR + 0.45f, 1f);
+                    AddSprite(shoulders, bottomSprite, Silhouette, "Audience", 0);
 
+                    var head = new GameObject("Head");
+                    head.transform.SetParent(person, false);
+                    head.transform.localPosition = new Vector3(0.03f * (jitter - 0.5f), top - headR, 0f);
+                    head.transform.localScale = new Vector3(2f * headR, 2f * headR * 1.1f, 1f);
+                    AddSprite(head, circleSprite, Silhouette, "Audience", 1);
+                }
+
+                watcherPlaced |= isWatcher;
                 x += 0.95f + 0.35f * (float)rng.NextDouble();
             }
+        }
+
+        // 光柱里的浮尘：跟着追光走，叠加的旧纸色小点。
+        static void BuildDust(Transform spot)
+        {
+            var go = new GameObject("Dust", typeof(ParticleSystem));
+            go.transform.SetParent(spot, false);
+            go.transform.position = new Vector3(spot.position.x, 3.6f, 0f);
+            var ps = go.GetComponent<ParticleSystem>();
+            var main = ps.main;
+            main.loop = true;
+            main.prewarm = true;
+            main.startLifetime = 7f;
+            main.startSpeed = 0.03f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.025f, 0.06f);
+            main.startColor = new Color(AgedPaper.r, AgedPaper.g, AgedPaper.b, 0.55f);
+            main.maxParticles = 150;
+            main.simulationSpace = ParticleSystemSimulationSpace.Local;
+            var emission = ps.emission;
+            emission.rateOverTime = 20f;
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(3.4f, 4.6f, 2f);
+            var noise = ps.noise;
+            noise.enabled = true;
+            noise.strength = 0.06f;
+            noise.frequency = 0.25f;
+            var fade = ps.colorOverLifetime;
+            fade.enabled = true;
+            var g = new Gradient();
+            g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                      new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.3f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
+            fade.color = g;
+            var r = go.GetComponent<ParticleSystemRenderer>();
+            r.sharedMaterial = DustMaterial();
+            r.sortingLayerName = "Light";
+        }
+
+        // 1930 年代电影海报的质感：胶片颗粒、轻微暗角、偏暖偏旧的调色，追光带一点泛光。
+        static void BuildPostFx(UniversalAdditionalCameraData camData)
+        {
+            if (AssetDatabase.LoadAssetAtPath<VolumeProfile>(PostFxPath) != null) AssetDatabase.DeleteAsset(PostFxPath);
+            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            AssetDatabase.CreateAsset(profile, PostFxPath);
+
+            var grain = profile.Add<FilmGrain>(true);
+            grain.type.Override(FilmGrainLookup.Medium3);
+            grain.intensity.Override(0.45f);
+            grain.response.Override(0.8f);
+            var vignette = profile.Add<Vignette>(true);
+            vignette.intensity.Override(0.3f);
+            vignette.smoothness.Override(0.45f);
+            var color = profile.Add<ColorAdjustments>(true);
+            color.saturation.Override(-15f);
+            color.colorFilter.Override(new Color(1f, 0.95f, 0.88f));
+            var bloom = profile.Add<Bloom>(true);
+            bloom.intensity.Override(0.35f);
+            bloom.threshold.Override(1.0f);
+            foreach (var c in profile.components) AssetDatabase.AddObjectToAsset(c, profile);
+            EditorUtility.SetDirty(profile);
+
+            var go = new GameObject("PostFX");
+            var volume = go.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.sharedProfile = profile;
+            camData.renderPostProcessing = true;
         }
 
         static void EnsureCircleSprite()
@@ -423,7 +646,7 @@ namespace Sleight.EditorTools
             dots.SetParent(canvasGo.transform, false);
             for (int i = 0; i < 3; i++)
             {
-                var dot = UiImage($"Dot{i + 1}", dots, Hex(0xD0D0D6, 0.25f));
+                var dot = UiImage($"Dot{i + 1}", dots, new Color(AgedPaper.r, AgedPaper.g, AgedPaper.b, 0.25f));
                 var rt = dot.rectTransform;
                 rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
                 rt.pivot = new Vector2(0f, 1f);
@@ -434,6 +657,15 @@ namespace Sleight.EditorTools
 
             hud.flashWhite = FullScreen("FlashWhite", canvasGo.transform, new Color(1, 1, 1, 0));
             hud.fadeBlack = FullScreen("FadeBlack", canvasGo.transform, new Color(0, 0, 0, 0));
+
+            var title = Art("title_card");
+            if (title != null)
+            {
+                hud.titleCard = FullScreen("TitleCard", canvasGo.transform, Color.white);
+                hud.titleCard.sprite = title;
+                hud.titleCard.preserveAspect = true;
+                hud.titleCard.gameObject.SetActive(false);
+            }
             return hud;
         }
 

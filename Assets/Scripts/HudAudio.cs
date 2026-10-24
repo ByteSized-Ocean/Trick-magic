@@ -10,6 +10,7 @@ namespace Sleight
         public Image[] actDots = new Image[3];
         public Image flashWhite;
         public Image fadeBlack;
+        public Image titleCard;      // §19.3 title_card，结局最后显示
         public SpriteRenderer eye;   // 白灰眼睛剪影，不许用黄
         Coroutine eyeRoutine;
 
@@ -69,6 +70,11 @@ namespace Sleight
             if (eyeRoutine != null) StopCoroutine(eyeRoutine);
             eye.transform.position = new Vector3(Stage.ZoneCenter(zone), 4.6f, 0f);
             eyeRoutine = StartCoroutine(EyeRoutine(duration));
+        }
+
+        public void SetTitleVisible(bool visible)
+        {
+            if (titleCard != null) titleCard.gameObject.SetActive(visible);
         }
 
         public void SetEyeVisible(bool visible, Vector3 position)

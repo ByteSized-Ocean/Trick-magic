@@ -20,7 +20,12 @@ namespace Sleight
         public PlayerController player;
         public HudAudio hud;
         public Transform propsRoot;
-        public PropInteractable propPrefab;   // TODO: 按类型换成 P_Prop_Box / P_Prop_Cloth / P_Prop_Mirror
+        public PropInteractable propPrefab;     // 色块占位，按类型的预制体缺图时用它
+        public PropInteractable boxPrefab;
+        public PropInteractable clothPrefab;
+        public PropInteractable mirrorPrefab;
+        public GameObject markerPrefab;          // P_Marker_Assist
+        public SpriteRenderer eyePrefab;         // P_EyeFlash
 
         ActData data;
         ActState state;
@@ -34,6 +39,11 @@ namespace Sleight
 
         void Awake()
         {
+            if (hud.eye == null && eyePrefab != null)
+            {
+                hud.eye = Instantiate(eyePrefab, transform);
+                hud.eye.gameObject.SetActive(false);
+            }
             if (hud.eye == null)
             {
                 hud.eye = MakeBlock("EyeFlash", transform, "Light", 10, EyeColor);
@@ -74,8 +84,9 @@ namespace Sleight
             props.Clear();
             foreach (var spec in d.props)
             {
-                if (propPrefab == null) break;
-                var p = Instantiate(propPrefab, propsRoot);
+                var prefab = PrefabFor(spec.type);
+                if (prefab == null) break;
+                var p = Instantiate(prefab, propsRoot);
                 p.name = spec.slot;
                 p.Init(spec);
                 props.Add(p);
@@ -87,11 +98,20 @@ namespace Sleight
             if (d.requireAssistant)
             {
                 // §19.2 prop_marker_assist：平铺在地板上的浅色标记，脚下那一行。
-                var marker = MakeBlock(d.TargetZone + ".assist", propsRoot, "Stage", 0, MarkerColor);
-                marker.transform.position = new Vector3(Stage.AssistX(d.TargetZone), Stage.Floor + 0.005f, -0.4f);
-                marker.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                marker.transform.localScale = new Vector3(1.0f, 0.8f, 1f);
-                markers.Add(marker.gameObject);
+                GameObject marker;
+                if (markerPrefab != null)
+                {
+                    marker = Instantiate(markerPrefab, propsRoot);
+                    marker.transform.position = new Vector3(Stage.AssistX(d.TargetZone), Stage.Floor + 0.005f, 0f);
+                }
+                else
+                {
+                    marker = MakeBlock(d.TargetZone + ".assist", propsRoot, "Stage", 0, MarkerColor).gameObject;
+                    marker.transform.position = new Vector3(Stage.AssistX(d.TargetZone), Stage.Floor + 0.005f, -0.4f);
+                    marker.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                    marker.transform.localScale = new Vector3(1.0f, 0.8f, 1f);
+                }
+                markers.Add(marker);
             }
 
             player.ResetTo(d.playerStart, props);
@@ -171,6 +191,15 @@ namespace Sleight
         {
             p.Toggle();
             state.propStates[p.slot] = p.State;
+        }
+
+        PropInteractable PrefabFor(string type)
+        {
+            PropInteractable p = null;
+            if (type == "box") p = boxPrefab;
+            else if (type == "cloth") p = clothPrefab;
+            else if (type == "mirror") p = mirrorPrefab;
+            return p != null ? p : propPrefab;
         }
 
         // 占位色块，复用道具预制体上的白图和材质。
