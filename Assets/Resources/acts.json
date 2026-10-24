@@ -1,0 +1,329 @@
+{
+  "acts": [
+    {
+      "actId": "L1A1",
+      "level": 1,
+      "index": 1,
+      "playerStart": 0.8,
+      "targetZone": "B",
+      "props": [
+        {
+          "slot": "B.box",
+          "type": "box",
+          "initial": "open",
+          "target": "sealed"
+        }
+      ],
+      "requireAssistant": false,
+      "lights": [
+        {
+          "id": "main",
+          "startZone": "A",
+          "dwell": 3.0,
+          "transition": 0.4,
+          "startDelay": 0
+        }
+      ],
+      "actTimeLimit": 45,
+      "isEnding": false,
+      "designNote": "教学：光在 A 时，B 区随便动。只要求一个动作，让玩家学会'光 = 禁手'。"
+    },
+    {
+      "actId": "L1A2",
+      "level": 1,
+      "index": 2,
+      "playerStart": 4.6,
+      "targetZone": "A",
+      "props": [
+        {
+          "slot": "A.cloth",
+          "type": "cloth",
+          "initial": "off",
+          "target": "on"
+        },
+        {
+          "slot": "A.box",
+          "type": "box",
+          "initial": "open",
+          "target": "sealed"
+        }
+      ],
+      "requireAssistant": false,
+      "lights": [
+        {
+          "id": "main",
+          "startZone": "B",
+          "dwell": 3.0,
+          "transition": 0.4,
+          "startDelay": 0
+        }
+      ],
+      "actTimeLimit": 45,
+      "isEnding": false,
+      "designNote": "盖住：两个动作要占两段暗窗"
+    },
+    {
+      "actId": "L1A3",
+      "level": 1,
+      "index": 3,
+      "playerStart": 3.2,
+      "targetZone": "B",
+      "props": [
+        {
+          "slot": "B.mirror",
+          "type": "mirror",
+          "initial": "normal",
+          "target": "flipped"
+        },
+        {
+          "slot": "B.box",
+          "type": "box",
+          "initial": "open",
+          "target": "sealed"
+        }
+      ],
+      "requireAssistant": true,
+      "lights": [
+        {
+          "id": "main",
+          "startZone": "A",
+          "dwell": 3.0,
+          "transition": 0.4,
+          "startDelay": 0
+        }
+      ],
+      "actTimeLimit": 45,
+      "isEnding": false,
+      "designNote": "镜子：首次引入'人也要站到位'"
+    },
+    {
+      "actId": "L2A1",
+      "level": 2,
+      "index": 1,
+      "playerStart": 1.0,
+      "targetZone": "A",
+      "props": [
+        {
+          "slot": "A.box",
+          "type": "box",
+          "initial": "open",
+          "target": "sealed"
+        },
+        {
+          "slot": "A.cloth",
+          "type": "cloth",
+          "initial": "off",
+          "target": "on"
+        }
+      ],
+      "requireAssistant": false,
+      "lights": [
+        {
+          "id": "main",
+          "startZone": "B",
+          "dwell": 2.6,
+          "transition": 0.4,
+          "startDelay": 0
+        }
+      ],
+      "actTimeLimit": 45,
+      "isEnding": false,
+      "designNote": "他在看别处：窗口变短，练习'分两个窗口做完'"
+    },
+    {
+      "actId": "L2A2",
+      "level": 2,
+      "index": 2,
+      "playerStart": 5.2,
+      "targetZone": "B",
+      "props": [
+        {
+          "slot": "B.mirror",
+          "type": "mirror",
+          "initial": "normal",
+          "target": "flipped"
+        }
+      ],
+      "requireAssistant": true,
+      "lights": [
+        {
+          "id": "main",
+          "startZone": "A",
+          "dwell": 2.6,
+          "transition": 0.4,
+          "startDelay": 0
+        }
+      ],
+      "actTimeLimit": 45,
+      "isEnding": false,
+      "designNote": "人不在也算错：只一件事，但两个条件同时成立"
+    },
+    {
+      "actId": "L2A3",
+      "level": 2,
+      "index": 3,
+      "playerStart": 6.0,
+      "targetZone": "A",
+      "props": [
+        {
+          "slot": "A.box",
+          "type": "box",
+          "initial": "open",
+          "target": "sealed"
+        },
+        {
+          "slot": "A.cloth",
+          "type": "cloth",
+          "initial": "off",
+          "target": "on"
+        },
+        {
+          "slot": "A.mirror",
+          "type": "mirror",
+          "initial": "normal",
+          "target": "flipped"
+        }
+      ],
+      "requireAssistant": false,
+      "lights": [
+        {
+          "id": "main",
+          "startZone": "B",
+          "dwell": 2.6,
+          "transition": 0.4,
+          "startDelay": 0
+        }
+      ],
+      "actTimeLimit": 45,
+      "isEnding": false,
+      "designNote": "三件一起：第一个真正要'排期'的幕"
+    },
+    {
+      "actId": "L3A1",
+      "level": 3,
+      "index": 1,
+      "playerStart": 1.2,
+      "targetZone": "B",
+      "props": [
+        {
+          "slot": "B.box",
+          "type": "box",
+          "initial": "open",
+          "target": "sealed"
+        },
+        {
+          "slot": "B.mirror",
+          "type": "mirror",
+          "initial": "normal",
+          "target": "flipped"
+        }
+      ],
+      "requireAssistant": false,
+      "lights": [
+        {
+          "id": "main",
+          "startZone": "A",
+          "dwell": 2.2,
+          "transition": 0.4,
+          "startDelay": 0
+        }
+      ],
+      "actTimeLimit": 45,
+      "isEnding": false,
+      "designNote": "快：窗口逼近下限，要求贴准 T-1.5"
+    },
+    {
+      "actId": "L3A2",
+      "level": 3,
+      "index": 2,
+      "playerStart": 3.6,
+      "targetZone": "A",
+      "props": [
+        {
+          "slot": "A.cloth",
+          "type": "cloth",
+          "initial": "off",
+          "target": "on"
+        },
+        {
+          "slot": "A.box",
+          "type": "box",
+          "initial": "open",
+          "target": "sealed"
+        },
+        {
+          "slot": "A.mirror",
+          "type": "mirror",
+          "initial": "normal",
+          "target": "flipped"
+        }
+      ],
+      "requireAssistant": true,
+      "lights": [
+        {
+          "id": "main",
+          "startZone": "B",
+          "dwell": 2.2,
+          "transition": 0.4,
+          "startDelay": 0
+        }
+      ],
+      "actTimeLimit": 45,
+      "isEnding": false,
+      "designNote": "两边都有人在看：三个道具 + 站位，全游戏最挤的一幕"
+    },
+    {
+      "actId": "L3A3",
+      "level": 3,
+      "index": 3,
+      "playerStart": 6.2,
+      "targetZone": "B",
+      "props": [
+        {
+          "slot": "B.box",
+          "type": "box",
+          "initial": "open",
+          "target": "sealed"
+        },
+        {
+          "slot": "B.cloth",
+          "type": "cloth",
+          "initial": "off",
+          "target": "on"
+        },
+        {
+          "slot": "B.mirror",
+          "type": "mirror",
+          "initial": "normal",
+          "target": "flipped"
+        }
+      ],
+      "requireAssistant": true,
+      "lights": [
+        {
+          "id": "main",
+          "startZone": "A",
+          "dwell": 2.2,
+          "transition": 0.4,
+          "startDelay": 0
+        }
+      ],
+      "actTimeLimit": 45,
+      "isEnding": false,
+      "designNote": "最后一场：全部机制叠满，通关"
+    },
+    {
+      "actId": "LEND",
+      "level": 4,
+      "index": 0,
+      "playerStart": 5.0,
+      "targetZone": "",
+      "props": [],
+      "requireAssistant": false,
+      "lights": [],
+      "actTimeLimit": 0,
+      "isEnding": true,
+      "designNote": "结局：不接受输入，进场 2.0s → 停 3.0s → 眼睛消失 → 淡出 1.0s → 标题"
+    }
+  ]
+}
