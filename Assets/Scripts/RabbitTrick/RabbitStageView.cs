@@ -36,6 +36,10 @@ namespace Sleight.RabbitTrick
         [SerializeField] Image showProgress, distractionProgress, flash;
         [SerializeField] Image patienceFill, patienceBack;
         [SerializeField] Text stepsTitle;
+        public Transform World => world;
+        public Transform HudCanvas => hintLabel != null ? hintLabel.transform.parent : null;
+        public Font HudFont => hintLabel != null ? hintLabel.font : interfaceFont;
+        public float[] GloveAlpha { get; } = { 1f, 1f };   // 关卡可以把藏起来的手画淡（如悬浮术里桌布下的那只手）
         [SerializeField] LineRenderer beamLine;
         static readonly Color BeamColor = new Color(1f, 0.81f, 0.4f, 0.09f);
         static readonly Color PoolColor = new Color(1f, 0.8f, 0.4f, 0.16f);
@@ -382,6 +386,17 @@ namespace Sleight.RabbitTrick
             endingLabel = resultTitle;
         }
 
+        // 第 1 关的道具只在第 1 关出现；第 2、3 关的道具由各自的 StageTrick 管。
+        public void SetLevel(int level)
+        {
+            bool rabbitLevel = level == 0;
+            foreach (var t in new[] { box, rabbit, dancer, dancerBase, dancerHandle })
+                if (t != null) t.gameObject.SetActive(rabbitLevel);
+            var rest = world != null ? world.Find("RabbitRest") : null;
+            if (rest != null) rest.gameObject.SetActive(rabbitLevel);
+            GloveAlpha[0] = GloveAlpha[1] = 1f;
+        }
+
         public void Draw(RabbitTrickGame game)
         {
             box.position = new Vector3(game.BoxX, BoxBase, 0);
@@ -389,7 +404,7 @@ namespace Sleight.RabbitTrick
             lid.localRotation = Quaternion.Euler(0, 0, game.LidAmount * 70f);
             emptyWindow.enabled = game.LidAmount > 0.4f;
             rabbit.position = game.RabbitPosition;
-            rabbit.gameObject.SetActive(!game.Rules.RabbitInside || game.LidAmount > 0.75f || game.Rules.Finished);
+            rabbit.gameObject.SetActive(game.Trick == null && (!game.Rules.RabbitInside || game.LidAmount > 0.75f || game.Rules.Finished));
             if (game.Rules.RabbitInside)
             {
                 rabbit.position = new Vector3(game.BoxX, 2.19f, 0);
@@ -413,6 +428,11 @@ namespace Sleight.RabbitTrick
                 Vector2 hand = game.Hands.Hands[i].position;
                 gloves[i].position = hand;
                 DrawGrip(i, game.Hands.Hands[i].gripping);
+                foreach (var sr in gloves[i].GetComponentsInChildren<SpriteRenderer>())
+                {
+                    if (sr == handRings[i] || sr.name == "Knuckles") continue;
+                    var gc = sr.color; gc.a = GloveAlpha[i]; sr.color = gc;
+                }
                 handRings[i].enabled = i == game.Hands.Active;
                 float pulse = 1f + 0.06f * Mathf.Sin(Time.time * 6);
                 handRings[i].transform.localScale = new Vector3(0.53f / circle.bounds.size.x, 0.53f / circle.bounds.size.y, 1) * pulse;
@@ -437,6 +457,7 @@ namespace Sleight.RabbitTrick
             }
             DrawAudience(game.Audience.X);
             DrawTorches();
+            game.Trick?.Draw();
             UpdateHud(game);
         }
 
@@ -531,10 +552,10 @@ namespace Sleight.RabbitTrick
             patienceFill.fillAmount = p;
             Color green = teal, yellow = new Color32(232, 190, 80, 255), red = new Color32(214, 76, 70, 255);
             Color col = p > 0.5f ? Color.Lerp(yellow, green, (p - 0.5f) * 2f) : Color.Lerp(red, yellow, p * 2f);
-            if (p < 0.25f && !game.Rules.Failed) col = Color.Lerp(col, Color.white, 0.35f * (0.5f + 0.5f * Mathf.Sin(Time.time * 12f)));
+            if (p < 0.25f && !game.IsFailed) col = Color.Lerp(col, Color.white, 0.35f * (0.5f + 0.5f * Mathf.Sin(Time.time * 12f)));
             patienceFill.color = col;
             var rt = patienceBack.rectTransform;
-            float shake = p < 0.25f && !game.Rules.Failed && !game.Rules.Finished ? Mathf.Sin(Time.time * 40f) * 2f * (1f - p * 4f) : 0f;
+            float shake = p < 0.25f && !game.IsFailed && !game.IsFinished ? Mathf.Sin(Time.time * 40f) * 2f * (1f - p * 4f) : 0f;
             rt.anchoredPosition = new Vector2(10 + shake, -190);
         }
 
@@ -631,6 +652,29 @@ namespace Sleight.RabbitTrick
             }
         }
 
+        Text demoBanner;
+
+        // 演示时画面上方正中的大标题："HOW IT'S DONE"，提示这是演示、可以跳过
+        void DrawDemoBanner(RabbitTrickGame game)
+        {
+            if (demoBanner == null)
+            {
+                var font = hintLabel.font;
+                demoBanner = Label("DemoBanner", hintLabel.transform.parent, new Vector2(400, -150), new Vector2(800, 60), "", 34, gold);
+                demoBanner.font = font;
+                demoBanner.alignment = TextAnchor.MiddleCenter;
+            }
+            demoBanner.gameObject.SetActive(false);   // 演示改在老电视里放（DemoTelevision），这条横幅不再显示
+            if (!game.InDemo) return;
+            demoBanner.text = "DEMO  ·  " + Ordinal(game.Level + 1).ToUpper() + " TRICK: " + game.TrickName;
+            var c = gold;
+            c.a = 0.75f + 0.25f * Mathf.Sin(Time.time * 3f);
+            demoBanner.color = c;
+            demoBanner.resizeTextForBestFit = true;
+            demoBanner.resizeTextMinSize = 16;
+            demoBanner.resizeTextMaxSize = 34;
+        }
+
         static string Ordinal(int n)
         {
             int mod100 = n % 100;
@@ -669,16 +713,21 @@ namespace Sleight.RabbitTrick
         void UpdateHud(RabbitTrickGame game)
         {
             bool zh = Chinese;
-            string[] names = zh ? new[] { "01  向观众展示空箱", "02  在暗处藏入兔子并关箱", "03  当着观众开箱变兔子" }
-                : new[] { "01  SHOW THE EMPTY BOX", "02  HIDE RABBIT + CLOSE BOX", "03  REVEAL UNDER THE LIGHT" };
-            int step = (int)game.Rules.Step;
+            string[] names = zh && game.Trick == null ? new[] { "01  向观众展示空箱", "02  在暗处藏入兔子并关箱", "03  当着观众开箱变兔子" }
+                : game.StepNames;
+            int step = game.StepIndex;
             for (int i = 0; i < 3; i++)
             {
-                stepLabels[i].text = (i < step ? (zh ? "完成  " : "DONE  ") : "") + names[i];
+                stepLabels[i].resizeTextForBestFit = true;
+                stepLabels[i].resizeTextMinSize = 12;
+                stepLabels[i].resizeTextMaxSize = 20;
+                stepLabels[i].text = (i < step ? (zh ? "完成  " : "DONE  ") : "") + (i < names.Length ? names[i] : "");
                 stepLabels[i].color = i < step ? teal : i == step ? cream : new Color(0.5f, 0.46f, 0.56f);
                 stepBars[i].color = i <= step ? teal : new Color(0.25f, 0.22f, 0.3f);
             }
-            showProgress.fillAmount = game.Rules.EmptyShowProgress;
+            showProgress.fillAmount = game.StepProgress;
+            // 进度条放在当前这一步下面
+            showProgress.rectTransform.anchoredPosition = new Vector2(34, -86 - Mathf.Clamp(step, 0, 2) * 47);
             if (stepsTitle != null) stepsTitle.text = Ordinal(game.Level + 1) + " TRICK: " + game.TrickName;
             handLabel.text = zh ? (game.Hands.Active == 0 ? "正在控制：左手" : "正在控制：右手") + "    F 切换    按住 E 抓取 / 松开 E 放下"
                 : (game.Hands.Active == 0 ? "CONTROLLING: LEFT HAND" : "CONTROLLING: RIGHT HAND") + "    F  SWITCH    HOLD E  GRAB / LET GO  DROP";
@@ -688,29 +737,38 @@ namespace Sleight.RabbitTrick
             distractionProgress.fillAmount = game.Audience.DanceRemaining / 12f;
             if (game.Audience.Dancing && game.Audience.CoversRabbit(game.RabbitPosition) && game.Audience.Illuminates(game.RabbitPosition))
                 gazeLabel.text += zh ? "  ·  兔子被遮住了" : "  / RABBIT COVERED";
-            hintLabel.text = game.Hint(zh);
-            controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     按住 E  抓取（松开放下）     R  重试"
+            hintLabel.text = game.InDemo ? game.DemoCaption : game.Hint(zh);
+            DrawDemoBanner(game);
+            if (Application.isPlaying)
+            {
+                var tv = GetComponent<DemoTelevision>();
+                if (tv == null) tv = gameObject.AddComponent<DemoTelevision>();
+                tv.Show(game.InDemo, this, "HOW TO PERFORM THE " + Ordinal(game.Level + 1).ToUpper() + " TRICK:  " + game.TrickName, game.DemoCaption);
+            }
+            if (game.InDemo) controls.text = "HOW TO PLAY THIS TRICK  /  PRESS ANY KEY TO SKIP";
+            else controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     按住 E  抓取（松开放下）     R  重试"
                 : "WASD  Walk     ARROWS  Move hand     F  Switch hand     Hold E  Grab (let go to drop)     R  Retry";
             // 被轰下台时先让东西飞一会儿，再弹结算面板，免得面板挡住魔术师
-            resultPanel.SetActive((game.Rules.Failed || game.Rules.Finished) && !game.ChangingLevel && !(game.Booed && game.ResultAge < 3.5f));
-            if (game.Rules.Failed)
+            resultPanel.SetActive((game.IsFailed || game.IsFinished) && !game.ChangingLevel && !game.InDemo && !(game.Booed && game.ResultAge < 3.5f));
+            if (game.IsFailed)
             {
                 resultTitle.text = zh ? "露馅了！" : game.Booed ? "BOOED OFF THE STAGE!" : "CAUGHT!";
-                resultBody.text = zh ? game.Rules.FailureReason + "\n按 R 重试这场魔术" : game.Rules.FailureReason + "\nPress R to try again.";
+                resultBody.text = zh ? game.FailureReason + "\n按 R 重试这场魔术" : game.FailureReason + "\nPress R to try again.";
             }
-            else if (game.Rules.Finished)
+            else if (game.IsFinished)
             {
-                resultTitle.text = zh ? "空箱变出了兔子！" : "A RABBIT FROM AN EMPTY BOX!";
-                resultBody.text = zh ? "第一场魔术成功  ·  按 R 再演一次" : "FIRST TRICK COMPLETE  /  PRESS R TO REPLAY";
+                resultTitle.text = zh && game.Trick == null ? "空箱变出了兔子！" : game.SuccessTitle;
+                bool last = game.Level >= RabbitTrickGame.LevelCount - 1;
+                resultBody.text = zh ? "魔术成功" : Ordinal(game.Level + 1).ToUpper() + " TRICK COMPLETE  /  " + (last ? "THE SHOW STARTS AGAIN" : "NEXT TRICK COMING UP");
             }
             var c = flash.color;
-            c.a = game.Rules.Failed && !game.Booed ? Mathf.Max(0, 0.45f - game.ResultAge) : 0;
+            c.a = game.IsFailed && !game.Booed ? Mathf.Max(0, 0.45f - game.ResultAge) : 0;
             flash.color = c;
             DrawPatience(game);
             DrawThrown(game);
         }
 
-        Transform Group(string name, Transform parent, Vector2 position)
+        public Transform Group(string name, Transform parent, Vector2 position)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -718,10 +776,10 @@ namespace Sleight.RabbitTrick
             return go.transform;
         }
 
-        SpriteRenderer Rect(string name, Transform parent, Vector2 position, Vector2 size, Color color, int order) =>
+        public SpriteRenderer Rect(string name, Transform parent, Vector2 position, Vector2 size, Color color, int order) =>
             Sprite(name, parent, square, position, size, color, order);
 
-        SpriteRenderer Disc(string name, Transform parent, Vector2 position, Vector2 size, Color color, int order, bool unlit = false)
+        public SpriteRenderer Disc(string name, Transform parent, Vector2 position, Vector2 size, Color color, int order, bool unlit = false)
         {
             var sr = Sprite(name, parent, circle, position, size, color, order);
             if (unlit) sr.sharedMaterial = overlayMaterial;
@@ -742,7 +800,7 @@ namespace Sleight.RabbitTrick
             return sr;
         }
 
-        LineRenderer Line(string name, Transform parent, float width, Color color, int order, int count)
+        public LineRenderer Line(string name, Transform parent, float width, Color color, int order, int count)
         {
             var go = Group(name, parent, Vector2.zero).gameObject;
             var line = go.AddComponent<LineRenderer>();

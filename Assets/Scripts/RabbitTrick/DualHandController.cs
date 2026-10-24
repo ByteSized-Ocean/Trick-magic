@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace Sleight.RabbitTrick
 {
-    [Serializable] public class TrickHand { public Vector2 position; public HandItem holding; public bool gripping; }
+    [Serializable] public class TrickHand { public Vector2 position; public HandItem holding; public bool gripping; public int custom = -1; }
     public sealed class DualHandController : MonoBehaviour
     {
         public float speed = 2.2f, walkSpeed = 2.2f, grabRadius = 0.34f;
@@ -32,7 +32,7 @@ namespace Sleight.RabbitTrick
         public void ResetHands()
         {
             Active = 0; BodyPosition = new Vector2(3.85f, 1.18f); rabbitGrip = Vector2.down * 0.12f;
-            for (int i = 0; i < 2; i++) { Hands[i].position = BodyPosition + new Vector2(i == 0 ? -0.62f : 0.62f, 0.85f); Hands[i].holding = HandItem.None; }
+            for (int i = 0; i < 2; i++) { Hands[i].position = BodyPosition + new Vector2(i == 0 ? -0.62f : 0.62f, 0.85f); Hands[i].holding = HandItem.None; Hands[i].custom = -1; }
         }
         public void Tick(RabbitTrickGame game, float dt)
         {
@@ -60,6 +60,12 @@ namespace Sleight.RabbitTrick
             for (int i = 0; i < 2; i++)
             {
                 var item = Hands[i].holding; Vector2 anchor = Hands[i].position;
+                if (item == HandItem.Custom)
+                {
+                    // 第 2、3 关：抓着固定把手时身体走不远；拿着能搬动的道具就跟着走
+                    if (game.Trick != null && game.Trick.Anchor(Hands[i], out var fixedAt) && Vector2.Distance(ShoulderAt(target, i), fixedAt) > Reach) return;
+                    continue;
+                }
                 if (item == HandItem.Box || item == HandItem.Dancer) anchor += Vector2.right * delta.x;
                 if (item != HandItem.None && item != HandItem.Rabbit && Vector2.Distance(ShoulderAt(target, i), anchor) > Reach) return;
             }
@@ -70,6 +76,7 @@ namespace Sleight.RabbitTrick
                 if (hand.holding == HandItem.Box) { game.SetBoxX(game.BoxX + delta.x); hand.position = game.BoxHandle; }
                 else if (hand.holding == HandItem.Dancer) { game.Audience.SetDancerX(game.Audience.DancerX + delta.x); hand.position = game.DancerHandle; }
                 else if (hand.holding == HandItem.Lid) hand.position = game.LidHandle;
+                else if (hand.holding == HandItem.Custom && game.Trick != null && game.Trick.Anchor(hand, out var fixedAt)) hand.position = fixedAt;
                 else hand.position = ClampHand(i, hand.position + delta);
             }
             UpdateRabbit(game);
@@ -106,6 +113,7 @@ namespace Sleight.RabbitTrick
                     if (hand.position.y > game.DancerHandle.y + 0.22f) { hand.holding = HandItem.None; game.StartDancing(); }
                 }
             }
+            else if (hand.holding == HandItem.Custom && game.Trick != null) game.Trick.MoveHeld(hand, Active, delta);
             else hand.position = ClampHand(Active, hand.position + delta);
             UpdateRabbit(game);
         }
@@ -129,6 +137,13 @@ namespace Sleight.RabbitTrick
         public void Release(RabbitTrickGame game)
         {
             var hand = Selected;
+            if (hand.holding == HandItem.Custom)
+            {
+                game.Trick?.Release(hand, Active);
+                hand.holding = HandItem.None;
+                hand.custom = -1;
+                return;
+            }
             if (hand.holding == HandItem.Rabbit)
             {
                 bool atBox = Vector2.Distance(game.RabbitPosition, game.BoxOpening) < 0.5f;
@@ -145,6 +160,11 @@ namespace Sleight.RabbitTrick
         {
             var hand = Selected;
             if (hand.holding != HandItem.None) return;
+            if (game.Trick != null)
+            {
+                if (!game.Trick.TryGrab(hand, Active)) game.Notify("Walk closer with WASD, move the hand onto a handle or a prop with the ARROWS, then hold E.");
+                return;
+            }
             if (Other.holding == HandItem.Rabbit && Vector2.Distance(hand.position, game.RabbitPosition) <= rabbitGrabRadius + 0.1f)
             {
                 Other.holding = HandItem.None; hand.holding = HandItem.Rabbit;

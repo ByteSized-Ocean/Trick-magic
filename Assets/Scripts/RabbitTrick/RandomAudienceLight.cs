@@ -4,6 +4,16 @@ namespace Sleight.RabbitTrick
     public sealed class RandomAudienceLight : MonoBehaviour
     {
         public float bottomRadius = 1.45f, topRadius = 0.24f, floorY = 0.85f, topY = 5.8f;
+        // 难度：追光每次停多久、移动用多久（RabbitTrickGame 按关卡设置）
+        public float dwellMin = 2.8f, dwellMax = 4.6f, travelMin = 1.1f, travelMax = 1.7f;
+        // 开场演示时由脚本指挥追光（ScriptMove），不随机走
+        public bool Scripted { get; set; }
+        // 偏向舞台左边：每次挑下一个落点时，有 leftChance 的机会去左边 [leftMin, leftMax]，并且在那里停得更久
+        public float leftChance, leftMin = 1.4f, leftMax = 3.0f, leftDwellMin = 6f, leftDwellMax = 9f;
+        public void SetLeftBias(float chance, float dwellMin, float dwellMax) { leftChance = chance; leftDwellMin = dwellMin; leftDwellMax = dwellMax; }
+        public void ScriptMove(float x, float duration) => MoveTo(x, duration);
+        public void SetPace(float minDwell, float maxDwell, float minTravel, float maxTravel)
+        { dwellMin = minDwell; dwellMax = maxDwell; travelMin = minTravel; travelMax = maxTravel; }
         public float X { get; private set; }
         public float DanceRemaining { get; private set; }
         public bool Moving => travelElapsed < travelDuration;
@@ -22,6 +32,16 @@ namespace Sleight.RabbitTrick
         public void SetDancerX(float x) { DancerX = anchorX = Mathf.Clamp(x, 1.1f, 8.65f); DancerDragging = true; }
         public void Tick(float dt)
         {
+            if (Scripted)
+            {
+                if (Moving)
+                {
+                    travelElapsed = Mathf.Min(travelDuration, travelElapsed + dt);
+                    X = Mathf.Lerp(fromX, targetX, Mathf.SmoothStep(0, 1, travelElapsed / travelDuration));
+                }
+                ApplyShader();
+                return;
+            }
             bool wasDancing = Dancing; DanceRemaining = Mathf.Max(0, DanceRemaining - dt);
             if (Dancing)
             {
@@ -45,9 +65,17 @@ namespace Sleight.RabbitTrick
                 dwellRemaining -= dt;
                 if (dwellRemaining <= 0)
                 {
-                    float next = Random.Range(3.1f, 8.4f);
-                    if (Mathf.Abs(next - X) < 1.2f) next = X > 5.5f ? 3.4f : 8;
-                    MoveTo(next, Random.Range(1.1f, 1.7f)); dwellRemaining = Random.Range(2.8f, 4.6f);
+                    if (leftChance > 0f && X > leftMax && Random.value < leftChance)
+                    {
+                        MoveTo(Random.Range(leftMin, leftMax), Random.Range(travelMin, travelMax));
+                        dwellRemaining = Random.Range(leftDwellMin, leftDwellMax);
+                    }
+                    else
+                    {
+                        float next = Random.Range(3.1f, 8.4f);
+                        if (Mathf.Abs(next - X) < 1.2f) next = X > 5.5f ? 3.4f : 8;
+                        MoveTo(next, Random.Range(travelMin, travelMax)); dwellRemaining = Random.Range(dwellMin, dwellMax);
+                    }
                 }
             }
             ApplyShader();

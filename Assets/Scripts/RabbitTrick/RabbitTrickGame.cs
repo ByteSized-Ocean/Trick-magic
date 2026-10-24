@@ -13,14 +13,40 @@ namespace Sleight.RabbitTrick
         public StageCurtains Curtains;
         public float curtainDelay = 2.2f;   // 成功后先让观众看清，再落幕
         public float closedHold = 1.0f;     // 幕合拢后停多久再拉开
-        public const int LevelCount = 1;    // 目前只有一关；以后加关只改这里、LoadLevel 和 TrickNames
-        public static readonly string[] TrickNames = { "THE RABBIT FROM AN EMPTY BOX" };
-        public string TrickName => TrickNames[Mathf.Clamp(Level, 0, TrickNames.Length - 1)];
+        // 三关，难度逐级递增。第 1 关是原来的空箱变兔子（Trick == null），第 2、3 关各是一个 StageTrick。
+        public const int LevelCount = 3;
+        readonly StageTrick[] tricks = { null, new TrunkTrick(), new LevitationTrick() };
+        static readonly float[] PatienceByLevel = { 50f, 90f, 40f };
+        // 追光偏向舞台左边的程度：去左边的机会、在左边停多久（最短 / 最长秒）。第 2 关柜子在中间，要给足暗处换人的时间
+        static readonly Vector3[] LeftBiasByLevel = { Vector3.zero, new Vector3(0.75f, 7f, 11f), Vector3.zero };
+        // 追光：停留最短 / 最长、移动最短 / 最长（秒），逐关更快
+        static readonly Vector4[] PaceByLevel = { new Vector4(2.8f, 4.6f, 1.1f, 1.7f), new Vector4(2.2f, 3.6f, 0.9f, 1.4f), new Vector4(1.8f, 3.0f, 0.7f, 1.1f) };
+        public StageTrick Trick => tricks[Mathf.Clamp(Level, 0, tricks.Length - 1)];
+        public string TrickName => Trick != null ? Trick.Name : "THE RABBIT FROM AN EMPTY BOX";
         public int Level { get; private set; }
-        public float patienceSeconds = 50f;   // 观众的耐心：这么久还没变出兔子，就开始扔东西
+        public float patienceSeconds = 50f;   // 观众的耐心：这么久还没完成魔术，就开始扔东西（每关开始时按 PatienceByLevel 重设）
+
+        // 当前关卡的状态，第 1 关读 Rules，第 2、3 关读 Trick
+        public bool IsFailed => Trick != null ? Trick.Failed : Rules.Failed;
+        public bool IsFinished => Trick != null ? Trick.Finished : Rules.Finished;
+        public string FailureReason => Trick != null ? Trick.FailureReason : Rules.FailureReason;
+        public int StepIndex => Trick != null ? Trick.Step : (int)Rules.Step;
+        public float StepProgress => Trick != null ? Trick.StepProgress : Rules.EmptyShowProgress;
+        public string[] StepNames => Trick != null ? Trick.StepNames : RabbitStepNames;
+        public string SuccessTitle => Trick != null ? Trick.SuccessTitle : "A RABBIT FROM AN EMPTY BOX!";
+        static readonly string[] RabbitStepNames = { "01  SHOW THE EMPTY BOX", "02  HIDE RABBIT + CLOSE BOX", "03  REVEAL UNDER THE LIGHT" };
+        void Expose(string reason) { if (Trick != null) Trick.Expose(reason); else Rules.Expose(reason); }
         public float Patience { get; private set; } = 1f;   // 1 = 满，0 = 耗尽
         public bool Booed { get; private set; }             // 耐心耗尽导致的失败（台下扔鸡蛋、白菜）
         public bool ChangingLevel { get; private set; }
+
+        // 每关开始前的演示（TrickDemo）：任意键跳过，演完自动开始
+        public bool InDemo { get; private set; }
+        public string DemoCaption => demo != null ? demo.Caption : "";
+        public bool LastDemoSucceeded { get; private set; }   // 编辑器验证用
+        public string LastDemoReport { get; private set; } = "";
+        public static bool SimulateInEditor;                  // 编辑器里快进跑演示时为 true
+        TrickDemo demo;
         public RabbitTrickRules Rules { get; } = new RabbitTrickRules();
         public float BoxX { get; private set; }
         public float LidAmount { get; private set; }
@@ -49,7 +75,59 @@ namespace Sleight.RabbitTrick
             view.UseRuntimeFont();
             bell = Tone("Caught bell", 660f, 0.32f, false);
             reveal = Tone("Reveal", 440f, 0.45f, true);
+            StartDemo();
+        }
+
+        public void StartDemo()
+        {
             ResetTrick();
+            InDemo = true;
+            Audience.Scripted = true;
+            demo = new TrickDemo(this);
+            if (Trick != null) Trick.AddDemo(demo);
+            else demo = TrickDemo.Rabbit(this);
+        }
+
+        public void EndDemo()
+        {
+            LastDemoSucceeded = IsFinished && !IsFailed;
+            LastDemoReport = $"level {Level + 1}: step {StepIndex}/{StepNames.Length}, failed={IsFailed} {FailureReason}, caption='{DemoCaption}'";
+            InDemo = false;
+            demo = null;
+            Audience.Scripted = false;
+            ResetTrick();
+        }
+
+        // 编辑器验证：把第 level 关的演示用固定步长快进跑完，返回是否演成功
+        public bool SimulateDemo(int level, float dt = 1f / 60f, int maxFrames = 60 * 180)
+        {
+            Level = Mathf.Clamp(level, 0, LevelCount - 1);
+            StartDemo();
+            for (int i = 0; i < maxFrames && InDemo; i++)
+            {
+                TickDemo(dt);
+                view.Draw(this);
+            }
+            if (InDemo) EndDemo();
+            return LastDemoSucceeded;
+        }
+
+        // 演示里的一帧：脚本代替键盘驱动双手，其余判定照常跑；不扣耐心、不落幕。
+        void TickDemo(float dt)
+        {
+            if (!IsFailed && !IsFinished)
+            {
+                demo.Tick(dt);
+                Audience.Tick(dt);
+                if (Trick != null) Trick.Tick(dt);
+                else { TickFalling(dt); Evaluate(dt); }
+                if (demo.Done) EndDemo();
+            }
+            else
+            {
+                ResultAge += dt;
+                if (ResultAge > 1.6f) EndDemo();
+            }
         }
 
         public void ResetTrick()
@@ -66,14 +144,38 @@ namespace Sleight.RabbitTrick
             rabbitFallVel = lidFallVel = 0f;
             Patience = 1f;
             Booed = false;
+            patienceSeconds = PatienceByLevel[Mathf.Clamp(Level, 0, PatienceByLevel.Length - 1)];
+            var pace = PaceByLevel[Mathf.Clamp(Level, 0, PaceByLevel.Length - 1)];
+            Audience.SetPace(pace.x, pace.y, pace.z, pace.w);
+            var bias = LeftBiasByLevel[Mathf.Clamp(Level, 0, LeftBiasByLevel.Length - 1)];
+            Audience.SetLeftBias(bias.x, bias.y, bias.z);
             Hands.ResetHands();
-            Audience.ResetLight(BoxX);
-            if (view != null) view.Draw(this);
+            // 第 2、3 关的道具在运行时才搭；编辑器里重建场景时不搭，免得存进场景、运行时又搭一份
+            if (Application.isPlaying || SimulateInEditor)
+            {
+                for (int i = 0; i < tricks.Length; i++)
+                {
+                    if (tricks[i] == null) continue;
+                    tricks[i].Attach(this);
+                    tricks[i].SetVisible(i == Level);
+                }
+                Trick?.Reset();
+            }
+            Audience.ResetLight(Trick != null ? Trick.StartLightX : BoxX);
+            if (view != null) { view.SetLevel(Level); view.Draw(this); }
         }
 
         void Update()
         {
             var kb = Keyboard.current;
+            if (InDemo)
+            {
+                // 任意键跳过演示
+                if (kb != null && kb.anyKey.wasPressedThisFrame) EndDemo();
+                else TickDemo(Mathf.Min(Time.deltaTime, 0.05f));
+                view.Draw(this);
+                return;
+            }
             if (kb != null && kb.rKey.wasPressedThisFrame && !ChangingLevel) ResetTrick();
 #if UNITY_EDITOR
             // 调试：F9 直接走一遍落幕 → 拉开，不用先把魔术演完
@@ -86,24 +188,32 @@ namespace Sleight.RabbitTrick
             {
                 Audience.Tick(dt);
             }
-            else if (Rules.Failed || Rules.Finished)
+            else if (IsFailed || IsFinished)
             {
                 ResultAge += dt;
-                if (Rules.Finished) Audience.Tick(dt);
-                if (Rules.Finished && Curtains != null && ResultAge >= curtainDelay) StartCoroutine(NextLevel());
+                if (IsFinished) Audience.Tick(dt);
+                if (IsFinished && Curtains != null && ResultAge >= curtainDelay) StartCoroutine(NextLevel());
             }
             else
             {
                 Hands.Tick(this, dt);
-                TickFalling(dt);
-                Audience.Tick(dt);
-                Evaluate(dt);
+                if (Trick != null)
+                {
+                    Audience.Tick(dt);
+                    Trick.Tick(dt);
+                }
+                else
+                {
+                    TickFalling(dt);
+                    Audience.Tick(dt);
+                    Evaluate(dt);
+                }
                 TickPatience(dt);
             }
-            if ((Rules.Failed || Rules.Finished) && !resultSoundPlayed)
+            if ((IsFailed || IsFinished) && !resultSoundPlayed)
             {
                 resultSoundPlayed = true;
-                if (audioSource != null) audioSource.PlayOneShot(Rules.Failed ? bell : reveal, 0.45f);
+                if (audioSource != null) audioSource.PlayOneShot(IsFailed ? bell : reveal, 0.45f);
             }
             view.Draw(this);
         }
@@ -119,12 +229,30 @@ namespace Sleight.RabbitTrick
             Curtains.Open();
             yield return new WaitUntil(() => Curtains.Settled);
             ChangingLevel = false;
+            StartDemo();
         }
 
         void LoadLevel(int index)
         {
-            Level = index;
-            ResetTrick();   // 目前每一关都是兔子魔术；多关以后在这里按 index 换布置
+            Level = Mathf.Clamp(index, 0, LevelCount - 1);
+            ResetTrick();
+        }
+
+        // Debug 跳关：立刻换到第 index 关（0 起），不走落幕
+        public void JumpToLevel(int index)
+        {
+            StopAllCoroutines();
+            ChangingLevel = false;
+            if (Curtains != null) Curtains.SnapOpen();
+            LoadLevel(index);
+            StartDemo();
+        }
+
+        // Debug：当前关直接判成功，走一遍正常的成功 → 落幕 → 下一关
+        public void DebugWinLevel()
+        {
+            if (ChangingLevel || IsFinished) return;
+            StartCoroutine(NextLevel());
         }
 
         public void Evaluate(float dt)
@@ -171,11 +299,11 @@ namespace Sleight.RabbitTrick
 
         void TickPatience(float dt)
         {
-            if (Rules.Failed || Rules.Finished) return;
+            if (IsFailed || IsFinished) return;
             Patience = Mathf.Max(0f, Patience - dt / Mathf.Max(1f, patienceSeconds));
             if (Patience > 0f) return;
             Booed = true;
-            Rules.Expose("The audience ran out of patience and started throwing things.");
+            Expose("The audience ran out of patience and started throwing things.");
         }
 
         // 松手后的物体：兔子掉到地上；半开的箱盖没人扶着，会绕铰链落下合上（全开时靠在限位上不动）。
@@ -225,8 +353,9 @@ namespace Sleight.RabbitTrick
 
         public string Hint(bool chinese)
         {
-            if (Rules.Failed || Rules.Finished) return "";
+            if (IsFailed || IsFinished) return "";
             if (Time.unscaledTime < notificationUntil) return notification;
+            if (Trick != null) return Trick.Hint();
             if (Hands.Selected.holding == HandItem.Lid)
                 return chinese ? "抓着箱盖：↑ 拉开 / ↓ 合上，松开 E 放手" : "HOLDING LID: UP opens / DOWN closes. Let go of E to release.";
             if (Hands.Selected.holding == HandItem.Box)
