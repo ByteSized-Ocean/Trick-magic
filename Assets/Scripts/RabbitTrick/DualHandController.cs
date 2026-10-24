@@ -149,7 +149,7 @@ namespace Sleight.RabbitTrick
             {
                 Other.holding = HandItem.None; hand.holding = HandItem.Rabbit;
                 rabbitGrip = Vector2.ClampMagnitude(game.RabbitPosition - hand.position, 0.6f); UpdateRabbit(game);
-                game.Notify("兔子已交到" + (Active == 0 ? "左手" : "右手") + "，按住 E 别松"); return;
+                game.Notify("Rabbit passed to your " + (Active == 0 ? "LEFT" : "RIGHT") + " hand. Keep holding E."); return;
             }
             HandItem nearest = HandItem.None; float distance = float.MaxValue;
             Check(HandItem.Lid, game.LidHandle, ref nearest, ref distance);
@@ -167,7 +167,7 @@ namespace Sleight.RabbitTrick
             else if (nearest == HandItem.Lid) hand.position = game.LidHandle;
             else if (nearest == HandItem.Box) hand.position = game.BoxHandle;
             else if (nearest == HandItem.Dancer) hand.position = game.DancerHandle;
-            else game.Notify("WASD 走近道具，方向键把手移到把手上，按住 E 抓取");
+            else game.Notify("Walk closer with WASD, move the hand onto a handle with the ARROWS, then hold E.");
         }
         // 兔子的外形范围（相对 RabbitPosition）：身体到耳朵尖。
         static readonly Rect RabbitBounds = new Rect(-0.3f, -0.3f, 0.6f, 0.98f);

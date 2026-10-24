@@ -320,7 +320,8 @@ namespace Sleight.RabbitTrick
             foreach (var text in GetComponentsInChildren<Text>(true)) text.font = runtimeFont;
         }
 
-        public bool Chinese => Application.platform != RuntimePlatform.WebGLPlayer && runtimeFont != null && runtimeFont.HasCharacter('兔');
+        // 团队决定游戏内文字全部用英文（中文文案仍留在代码里，改回只需让这里返回 true）。
+        public bool Chinese => false;
 
         void BuildHud()
         {
@@ -538,21 +539,21 @@ namespace Sleight.RabbitTrick
             }
             showProgress.fillAmount = game.Rules.EmptyShowProgress;
             handLabel.text = zh ? (game.Hands.Active == 0 ? "正在控制：左手" : "正在控制：右手") + "    F 切换    按住 E 抓取 / 松开 E 放下"
-                : (game.Hands.Active == 0 ? "LEFT HAND" : "RIGHT HAND") + "    F SWITCH    HOLD E TO GRAB";
+                : (game.Hands.Active == 0 ? "CONTROLLING: LEFT HAND" : "CONTROLLING: RIGHT HAND") + "    F  SWITCH    HOLD E  GRAB / LET GO  DROP";
             gazeLabel.text = game.Audience.Dancing
                 ? (zh ? "跳舞小人吸引中  " : "DISTRACTED  ") + Mathf.CeilToInt(game.Audience.DanceRemaining) + "s"
-                : (zh ? (game.Audience.Moving ? "观众正在转移目光" : "观众正看着亮处") : "WATCH THE MOVING LIGHT");
+                : (zh ? (game.Audience.Moving ? "观众正在转移目光" : "观众正看着亮处") : (game.Audience.Moving ? "THE AUDIENCE IS LOOKING AWAY" : "THE AUDIENCE IS WATCHING THE LIGHT"));
             distractionProgress.fillAmount = game.Audience.DanceRemaining / 12f;
             if (game.Audience.Dancing && game.Audience.CoversRabbit(game.RabbitPosition) && game.Audience.Illuminates(game.RabbitPosition))
                 gazeLabel.text += zh ? "  ·  兔子被遮住了" : "  / RABBIT COVERED";
             hintLabel.text = game.Hint(zh);
             controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     按住 E  抓取（松开放下）     R  重试"
-                : "WASD Walk     ARROWS Hand     F Switch     Hold E Grab (let go to drop)     R Retry";
+                : "WASD  Walk     ARROWS  Move hand     F  Switch hand     Hold E  Grab (let go to drop)     R  Retry";
             resultPanel.SetActive((game.Rules.Failed || game.Rules.Finished) && !game.ChangingLevel);
             if (game.Rules.Failed)
             {
                 resultTitle.text = zh ? "露馅了！" : "CAUGHT!";
-                resultBody.text = zh ? game.Rules.FailureReason + "\n按 R 重试这场魔术" : "The audience saw the secret.\nPress R to try again.";
+                resultBody.text = zh ? game.Rules.FailureReason + "\n按 R 重试这场魔术" : game.Rules.FailureReason + "\nPress R to try again.";
             }
             else if (game.Rules.Finished)
             {

@@ -142,11 +142,11 @@ namespace Sleight.RabbitTrick
 
         public bool TryPutRabbit()
         {
-            if (Rules.Step == TrickStep.ShowEmpty) { Notify("先让观众看清空箱子，再藏兔子"); return false; }
-            if (LidAmount < 0.92f) { Notify("箱盖还没完全打开：抓住箱盖，向上拉"); return false; }
+            if (Rules.Step == TrickStep.ShowEmpty) { Notify("Show the audience the empty box first, then hide the rabbit."); return false; }
+            if (LidAmount < 0.92f) { Notify("The lid is not fully open: grab it and pull UP."); return false; }
             bool inserted = Rules.TryInsert(LidAmount >= 0.92f,
                 Audience.RabbitVisibleInLight(RabbitPosition), Audience.Illuminates(BoxOpening, 0.24f) && !Audience.CoversRabbit(BoxOpening));
-            if (inserted) Notify("兔子已藏好！趁暗抓住箱盖向下拉，关紧箱子");
+            if (inserted) Notify("Rabbit hidden! While it is dark, pull the lid DOWN to close the box.");
             return inserted;
         }
 
@@ -195,7 +195,7 @@ namespace Sleight.RabbitTrick
         public void StartDancing()
         {
             Audience.Distract(Audience.DancerX);
-            Notify("小人开始跳舞！可以抓着侧面拉环移动，用裙摆遮住兔子穿过亮处");
+            Notify("The decoy is dancing! Drag it by its side ring and hide the rabbit behind its cape.");
         }
 
         public void Notify(string message)
@@ -207,7 +207,7 @@ namespace Sleight.RabbitTrick
         public string Hint(bool chinese)
         {
             if (Rules.Failed || Rules.Finished) return "";
-            if (chinese && Time.unscaledTime < notificationUntil) return notification;
+            if (Time.unscaledTime < notificationUntil) return notification;
             if (Hands.Selected.holding == HandItem.Lid)
                 return chinese ? "抓着箱盖：↑ 拉开 / ↓ 合上，松开 E 放手" : "HOLDING LID: UP opens / DOWN closes. Let go of E to release.";
             if (Hands.Selected.holding == HandItem.Box)
@@ -216,12 +216,12 @@ namespace Sleight.RabbitTrick
                 return Audience.Dancing ? (chinese ? "左右拖动小人：把兔子藏在裙摆正后方，离开遮挡就会露馅" : "Drag the decoy. Keep the whole rabbit behind its cape in the light.")
                     : (chinese ? "抓住了小人的拉环：向上拉，让它跳舞" : "Pull UP to wind the dancing decoy.");
             if (Rules.Step == TrickStep.ShowEmpty)
-                return chinese ? "WASD 走近箱子；方向键把手移到箱盖，按住 E 抓住向上拉，必须在灯下展示" : "WASD walk to box. ARROWS move hand. Hold E on the lid; pull UP in the LIGHT.";
+                return chinese ? "WASD 走近箱子；方向键把手移到箱盖，按住 E 抓住向上拉，必须在灯下展示" : "WASD: walk to the box. ARROWS: move the hand. Hold E on the lid and pull UP in the LIGHT.";
             if (Rules.Step == TrickStep.HideRabbit)
             {
                 if (Rules.RabbitInside) return chinese ? "兔子已经在里面了：趁暗抓住箱盖，向下拉到完全关闭" : "RABBIT INSIDE: pull the lid DOWN completely while it is dark.";
                 if (Hands.Selected.holding == HandItem.Rabbit)
-                    return chinese ? "保持兔子在暗处，或藏在移动小人的裙摆后；到箱口松开 E 放入。按住 E 时按 F 切手，可以交接" : "Carry in DARKNESS or behind the moving cape. Let go of E at the box. F switches hand.";
+                    return chinese ? "保持兔子在暗处，或藏在移动小人的裙摆后；到箱口松开 E 放入。按住 E 时按 F 切手，可以交接" : "Carry it in the DARK or behind the moving cape. Let go of E at the box. Hold E and press F to pass it.";
                 return chinese ? "向上拉小人的侧面拉环吸引目光；也能移动小人，让兔子躲在裙摆后通过灯光" : "Wind the decoy. Its moving cape can cover a rabbit passing through the spotlight.";
             }
             return chinese ? "把小人移开：箱口必须在灯下且无遮挡，拉开箱盖给观众看兔子" : "Move the decoy aside. Reveal only when the box is LIT and UNOBSTRUCTED.";
