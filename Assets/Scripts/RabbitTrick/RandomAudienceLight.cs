@@ -4,6 +4,10 @@ namespace Sleight.RabbitTrick
     public sealed class RandomAudienceLight : MonoBehaviour
     {
         public float bottomRadius = 1.45f, topRadius = 0.24f, floorY = 0.85f, topY = 5.8f;
+        // 难度：追光每次停多久、移动用多久（RabbitTrickGame 按关卡设置）
+        public float dwellMin = 2.8f, dwellMax = 4.6f, travelMin = 1.1f, travelMax = 1.7f;
+        public void SetPace(float minDwell, float maxDwell, float minTravel, float maxTravel)
+        { dwellMin = minDwell; dwellMax = maxDwell; travelMin = minTravel; travelMax = maxTravel; }
         public float X { get; private set; }
         public float DanceRemaining { get; private set; }
         public bool Moving => travelElapsed < travelDuration;
@@ -47,7 +51,7 @@ namespace Sleight.RabbitTrick
                 {
                     float next = Random.Range(3.1f, 8.4f);
                     if (Mathf.Abs(next - X) < 1.2f) next = X > 5.5f ? 3.4f : 8;
-                    MoveTo(next, Random.Range(1.1f, 1.7f)); dwellRemaining = Random.Range(2.8f, 4.6f);
+                    MoveTo(next, Random.Range(travelMin, travelMax)); dwellRemaining = Random.Range(dwellMin, dwellMax);
                 }
             }
             ApplyShader();

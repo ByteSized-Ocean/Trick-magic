@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Sleight.RabbitTrick
 {
     public enum TrickStep { ShowEmpty, HideRabbit, RevealRabbit, Complete }
-    public enum HandItem { None, Rabbit, Lid, Box, Dancer }
+    public enum HandItem { None, Rabbit, Lid, Box, Dancer, Custom }   // Custom：第 2、3 关的道具，具体是哪个看 TrickHand.custom
 
     // Gameplay state is independent of input, rendering and Unity's frame order.
     public sealed class RabbitTrickRules
