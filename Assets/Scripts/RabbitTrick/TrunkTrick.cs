@@ -140,7 +140,7 @@ namespace Sleight.RabbitTrick
         {
             var c = p.Center;
             bool throughFront = open >= 0.7f && Mathf.Abs(c.x - CabX) <= 0.55f && c.y < 3.4f;
-            bool throughHatch = hatch >= 0.6f && c.x > CabX - 0.2f && c.x < HatchX + 0.9f && c.y < 3.4f;
+            bool throughHatch = hatch >= 0.6f && c.x > CabX - 0.2f && c.x < HatchX + 0.45f && c.y < 3.4f;
             if (!throughFront && !throughHatch) return false;
             p.inside = true;
             p.velocity = Vector2.zero;
@@ -220,6 +220,34 @@ namespace Sleight.RabbitTrick
             bool both = assistant.inside && dummy.inside;
             if (assistant.inside) assistant.position = new Vector2(CabX + (both ? -0.22f : 0f), Floor + 0.06f);
             if (dummy.inside) dummy.position = new Vector2(CabX + (both ? 0.22f : 0f), Floor + 0.06f);
+        }
+
+        public override void AddDemo(TrickDemo d)
+        {
+            d.Say("1  Carry your assistant into the open cabinet...")
+             .Walk(2.9f).Hand(0).HandTo(() => assistant.position + new Vector2(0.2f, 0.9f)).Grab()
+             .Walk(5.3f).HandTo(() => new Vector2(CabX + 0.2f, 2.08f)).Release()
+             .Say("...and close the curtain while the LIGHT is on the cabinet.")
+             .Hand(1).HandTo(() => CurtainHandle).Grab().HandBy(Vector2.right * 1.15f).Release()
+             .Until(() => Step >= 1)
+             .Say("2  In the DARK, fetch the dummy from behind the right wings.")
+             .Light(2.0f, 1.0f)
+             .Walk(9.1f).Hand(1).HandTo(() => dummy.position + new Vector2(0f, 0.75f)).Grab()
+             .Walk(7.45f).Release()
+             .Say("Hold the self-closing side door open with one hand...")
+             .Walk(6.45f).Hand(0).HandTo(() => HatchHandle).Grab().HandTo(() => HatchHandleAt(0.75f))
+             .Say("...and swap them with the other hand.")
+             .Hand(1).HandTo(() => new Vector2(CabX + 0.35f, 1.95f)).Grab().HandTo(() => new Vector2(7.4f, 1.95f)).Release()
+             .HandTo(() => dummy.position + new Vector2(-0.23f, 0.82f)).Grab().HandTo(() => new Vector2(6.07f, 2.0f)).Release()
+             .Hand(0).Release()
+             .Say("Hide your assistant in the right wings.")
+             .Hand(1).HandTo(() => assistant.position + new Vector2(-0.05f, 0.77f)).Grab()
+             .Walk(9.15f).HandTo(() => game.Hands.Shoulder(1) + new Vector2(0.5f, -0.55f)).Release()
+             .Until(() => Step >= 2)
+             .Say("3  When the light returns, open the curtain: she has become a dummy!")
+             .Walk(5.6f).Light(CabX, 1.2f)
+             .Hand(1).HandTo(() => CurtainHandle).Grab().HandBy(Vector2.left * 1.15f)
+             .Wait(0.5f);
         }
 
         public override string Hint()

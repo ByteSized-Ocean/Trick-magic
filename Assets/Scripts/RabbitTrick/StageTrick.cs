@@ -59,6 +59,7 @@ namespace Sleight.RabbitTrick
         public abstract void Tick(float dt);
         public abstract void Draw();
         public abstract string Hint();
+        public abstract void AddDemo(TrickDemo demo);   // 开场演示：按正确解法演一遍
 
         // 手：按住 E 时调用，抓到东西就把 hand.holding 设成 Custom、hand.custom 设成道具编号。
         public abstract bool TryGrab(TrickHand hand, int index);

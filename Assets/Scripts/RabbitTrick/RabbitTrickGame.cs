@@ -37,6 +37,14 @@ namespace Sleight.RabbitTrick
         public float Patience { get; private set; } = 1f;   // 1 = 满，0 = 耗尽
         public bool Booed { get; private set; }             // 耐心耗尽导致的失败（台下扔鸡蛋、白菜）
         public bool ChangingLevel { get; private set; }
+
+        // 每关开始前的演示（TrickDemo）：任意键跳过，演完自动开始
+        public bool InDemo { get; private set; }
+        public string DemoCaption => demo != null ? demo.Caption : "";
+        public bool LastDemoSucceeded { get; private set; }   // 编辑器验证用
+        public string LastDemoReport { get; private set; } = "";
+        public static bool SimulateInEditor;                  // 编辑器里快进跑演示时为 true
+        TrickDemo demo;
         public RabbitTrickRules Rules { get; } = new RabbitTrickRules();
         public float BoxX { get; private set; }
         public float LidAmount { get; private set; }
@@ -65,7 +73,59 @@ namespace Sleight.RabbitTrick
             view.UseRuntimeFont();
             bell = Tone("Caught bell", 660f, 0.32f, false);
             reveal = Tone("Reveal", 440f, 0.45f, true);
+            StartDemo();
+        }
+
+        public void StartDemo()
+        {
             ResetTrick();
+            InDemo = true;
+            Audience.Scripted = true;
+            demo = new TrickDemo(this);
+            if (Trick != null) Trick.AddDemo(demo);
+            else demo = TrickDemo.Rabbit(this);
+        }
+
+        public void EndDemo()
+        {
+            LastDemoSucceeded = IsFinished && !IsFailed;
+            LastDemoReport = $"level {Level + 1}: step {StepIndex}/{StepNames.Length}, failed={IsFailed} {FailureReason}, caption='{DemoCaption}'";
+            InDemo = false;
+            demo = null;
+            Audience.Scripted = false;
+            ResetTrick();
+        }
+
+        // 编辑器验证：把第 level 关的演示用固定步长快进跑完，返回是否演成功
+        public bool SimulateDemo(int level, float dt = 1f / 60f, int maxFrames = 60 * 180)
+        {
+            Level = Mathf.Clamp(level, 0, LevelCount - 1);
+            StartDemo();
+            for (int i = 0; i < maxFrames && InDemo; i++)
+            {
+                TickDemo(dt);
+                view.Draw(this);
+            }
+            if (InDemo) EndDemo();
+            return LastDemoSucceeded;
+        }
+
+        // 演示里的一帧：脚本代替键盘驱动双手，其余判定照常跑；不扣耐心、不落幕。
+        void TickDemo(float dt)
+        {
+            if (!IsFailed && !IsFinished)
+            {
+                demo.Tick(dt);
+                Audience.Tick(dt);
+                if (Trick != null) Trick.Tick(dt);
+                else { TickFalling(dt); Evaluate(dt); }
+                if (demo.Done) EndDemo();
+            }
+            else
+            {
+                ResultAge += dt;
+                if (ResultAge > 1.6f) EndDemo();
+            }
         }
 
         public void ResetTrick()
@@ -87,7 +147,7 @@ namespace Sleight.RabbitTrick
             Audience.SetPace(pace.x, pace.y, pace.z, pace.w);
             Hands.ResetHands();
             // 第 2、3 关的道具在运行时才搭；编辑器里重建场景时不搭，免得存进场景、运行时又搭一份
-            if (Application.isPlaying)
+            if (Application.isPlaying || SimulateInEditor)
             {
                 for (int i = 0; i < tricks.Length; i++)
                 {
@@ -104,6 +164,14 @@ namespace Sleight.RabbitTrick
         void Update()
         {
             var kb = Keyboard.current;
+            if (InDemo)
+            {
+                // 任意键跳过演示
+                if (kb != null && kb.anyKey.wasPressedThisFrame) EndDemo();
+                else TickDemo(Mathf.Min(Time.deltaTime, 0.05f));
+                view.Draw(this);
+                return;
+            }
             if (kb != null && kb.rKey.wasPressedThisFrame && !ChangingLevel) ResetTrick();
 #if UNITY_EDITOR
             // 调试：F9 直接走一遍落幕 → 拉开，不用先把魔术演完
@@ -157,6 +225,7 @@ namespace Sleight.RabbitTrick
             Curtains.Open();
             yield return new WaitUntil(() => Curtains.Settled);
             ChangingLevel = false;
+            StartDemo();
         }
 
         void LoadLevel(int index)
@@ -172,6 +241,7 @@ namespace Sleight.RabbitTrick
             ChangingLevel = false;
             if (Curtains != null) Curtains.SnapOpen();
             LoadLevel(index);
+            StartDemo();
         }
 
         // Debug：当前关直接判成功，走一遍正常的成功 → 落幕 → 下一关

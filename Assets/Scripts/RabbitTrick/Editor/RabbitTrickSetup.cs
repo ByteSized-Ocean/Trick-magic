@@ -29,6 +29,31 @@ namespace Sleight.RabbitTrick.EditorTools
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 2 关", true)]
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 3 关", true)]
         static bool CanJump() => Application.isPlaying;
+
+        // 快进跑一遍三关的开场演示，确认每段都能把魔术演成功（批处理：-executeMethod ...ValidateDemos）
+        [MenuItem("Sleight/兔子魔术/Debug/验证三关演示（会重建场景）")]
+        public static void ValidateDemos()
+        {
+            Build();
+            var game = UnityEngine.Object.FindAnyObjectByType<RabbitTrickGame>();
+            var report = new System.Text.StringBuilder();
+            bool ok = true;
+            RabbitTrickGame.SimulateInEditor = true;
+            try
+            {
+                for (int level = 0; level < RabbitTrickGame.LevelCount; level++)
+                {
+                    bool pass = game.SimulateDemo(level);
+                    ok &= pass;
+                    report.AppendLine((pass ? "PASS  " : "FAIL  ") + game.LastDemoReport);
+                }
+            }
+            finally { RabbitTrickGame.SimulateInEditor = false; }
+            Directory.CreateDirectory("Logs");
+            File.WriteAllText("Logs/DemoValidation.txt", report.ToString());
+            Debug.Log("[RabbitTrick] Demo validation\n" + report);
+            if (!ok) throw new InvalidOperationException("Demo validation failed:\n" + report);
+        }
         static void Jump(int level)
         {
             var game = UnityEngine.Object.FindAnyObjectByType<RabbitTrickGame>();

@@ -650,6 +650,29 @@ namespace Sleight.RabbitTrick
             }
         }
 
+        Text demoBanner;
+
+        // 演示时画面上方正中的大标题："HOW IT'S DONE"，提示这是演示、可以跳过
+        void DrawDemoBanner(RabbitTrickGame game)
+        {
+            if (demoBanner == null)
+            {
+                var font = hintLabel.font;
+                demoBanner = Label("DemoBanner", hintLabel.transform.parent, new Vector2(400, -150), new Vector2(800, 60), "", 34, gold);
+                demoBanner.font = font;
+                demoBanner.alignment = TextAnchor.MiddleCenter;
+            }
+            demoBanner.gameObject.SetActive(game.InDemo);
+            if (!game.InDemo) return;
+            demoBanner.text = "DEMO  ·  " + Ordinal(game.Level + 1).ToUpper() + " TRICK: " + game.TrickName;
+            var c = gold;
+            c.a = 0.75f + 0.25f * Mathf.Sin(Time.time * 3f);
+            demoBanner.color = c;
+            demoBanner.resizeTextForBestFit = true;
+            demoBanner.resizeTextMinSize = 16;
+            demoBanner.resizeTextMaxSize = 34;
+        }
+
         static string Ordinal(int n)
         {
             int mod100 = n % 100;
@@ -712,11 +735,13 @@ namespace Sleight.RabbitTrick
             distractionProgress.fillAmount = game.Audience.DanceRemaining / 12f;
             if (game.Audience.Dancing && game.Audience.CoversRabbit(game.RabbitPosition) && game.Audience.Illuminates(game.RabbitPosition))
                 gazeLabel.text += zh ? "  ·  兔子被遮住了" : "  / RABBIT COVERED";
-            hintLabel.text = game.Hint(zh);
-            controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     按住 E  抓取（松开放下）     R  重试"
+            hintLabel.text = game.InDemo ? game.DemoCaption : game.Hint(zh);
+            DrawDemoBanner(game);
+            if (game.InDemo) controls.text = "HOW TO PLAY THIS TRICK  /  PRESS ANY KEY TO SKIP";
+            else controls.text = zh ? "WASD  移动人物     方向键  移动手     F  切换手     按住 E  抓取（松开放下）     R  重试"
                 : "WASD  Walk     ARROWS  Move hand     F  Switch hand     Hold E  Grab (let go to drop)     R  Retry";
             // 被轰下台时先让东西飞一会儿，再弹结算面板，免得面板挡住魔术师
-            resultPanel.SetActive((game.IsFailed || game.IsFinished) && !game.ChangingLevel && !(game.Booed && game.ResultAge < 3.5f));
+            resultPanel.SetActive((game.IsFailed || game.IsFinished) && !game.ChangingLevel && !game.InDemo && !(game.Booed && game.ResultAge < 3.5f));
             if (game.IsFailed)
             {
                 resultTitle.text = zh ? "露馅了！" : game.Booed ? "BOOED OFF THE STAGE!" : "CAUGHT!";

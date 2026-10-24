@@ -6,6 +6,9 @@ namespace Sleight.RabbitTrick
         public float bottomRadius = 1.45f, topRadius = 0.24f, floorY = 0.85f, topY = 5.8f;
         // 难度：追光每次停多久、移动用多久（RabbitTrickGame 按关卡设置）
         public float dwellMin = 2.8f, dwellMax = 4.6f, travelMin = 1.1f, travelMax = 1.7f;
+        // 开场演示时由脚本指挥追光（ScriptMove），不随机走
+        public bool Scripted { get; set; }
+        public void ScriptMove(float x, float duration) => MoveTo(x, duration);
         public void SetPace(float minDwell, float maxDwell, float minTravel, float maxTravel)
         { dwellMin = minDwell; dwellMax = maxDwell; travelMin = minTravel; travelMax = maxTravel; }
         public float X { get; private set; }
@@ -26,6 +29,16 @@ namespace Sleight.RabbitTrick
         public void SetDancerX(float x) { DancerX = anchorX = Mathf.Clamp(x, 1.1f, 8.65f); DancerDragging = true; }
         public void Tick(float dt)
         {
+            if (Scripted)
+            {
+                if (Moving)
+                {
+                    travelElapsed = Mathf.Min(travelDuration, travelElapsed + dt);
+                    X = Mathf.Lerp(fromX, targetX, Mathf.SmoothStep(0, 1, travelElapsed / travelDuration));
+                }
+                ApplyShader();
+                return;
+            }
             bool wasDancing = Dancing; DanceRemaining = Mathf.Max(0, DanceRemaining - dt);
             if (Dancing)
             {

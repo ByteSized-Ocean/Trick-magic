@@ -51,7 +51,7 @@ namespace Sleight.RabbitTrick
 
         public override bool TryGrab(TrickHand hand, int index)
         {
-            if (hoop.heldBy == 1 - index && hoop.DistanceTo(hand.position) <= 0.3f)
+            if (hoop.heldBy == 1 - index && RingDistance(hand.position) <= 0.2f)   // 交接：空手碰到另一只手拿着的铁环
             {
                 game.Hands.Hands[1 - index].holding = HandItem.None;
                 hoop.Grab(index, hand.position);
@@ -175,6 +175,23 @@ namespace Sleight.RabbitTrick
             for (int i = 0; i < 2; i++)
                 if (game.Hands.Hands[i].holding == HandItem.Custom && game.Hands.Hands[i].custom == id) return i;
             return -1;
+        }
+
+        public override void AddDemo(TrickDemo d)
+        {
+            d.Say("Take the hoop from its stand first.")
+             .Walk(2.1f).Hand(0).HandTo(() => HoopCenter + Vector2.right * HoopRadius).Grab()
+             .Say("1  Reach under the tablecloth, hold the hidden lever and push UP.")
+             .Walk(5.45f).Hand(1).HandTo(() => LeverHandle).Grab().HandBy(Vector2.up * 0.4f)
+             .Until(() => Step >= 1)
+             .Say("2  Keep the lever up, switch hands and pass the hoop along her body in the light.")
+             .Walk(5.6f).Hand(0).HandTo(() => new Vector2(4.85f, BoardCenter.y))
+             .HandTo(() => new Vector2(5.6f, BoardCenter.y)).Walk(6.0f)
+             .HandTo(() => new Vector2(6.4f, BoardCenter.y))
+             .Until(() => Step >= 2)
+             .Say("3  Step back toward the lever and lower her gently onto the table.")
+             .Walk(5.45f).Hand(1).HandBy(Vector2.down * 0.4f)
+             .Wait(0.5f);
         }
 
         public override string Hint()
