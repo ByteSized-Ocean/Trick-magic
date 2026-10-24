@@ -14,7 +14,7 @@ namespace Sleight.RabbitTrick.EditorTools
         const string ArtPath = "Assets/Art/RabbitTrick";
         const string ReportPath = "Logs/RabbitTrickValidation.txt";
 
-        [MenuItem("Sleight/兔子魔术/重建第一关场景")]
+        [MenuItem("Sleight/兔子魔术/重建五关舞台场景")]
         public static void FromMenu()
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
@@ -25,65 +25,18 @@ namespace Sleight.RabbitTrick.EditorTools
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 1 关")] static void Jump1() => Jump(0);
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 2 关")] static void Jump2() => Jump(1);
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 3 关")] static void Jump3() => Jump(2);
+        [MenuItem("Sleight/兔子魔术/Debug/跳到第 4 关")] static void Jump4() => Jump(3);
+        [MenuItem("Sleight/兔子魔术/Debug/跳到第 5 关")] static void Jump5() => Jump(4);
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 1 关", true)]
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 2 关", true)]
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 3 关", true)]
+        [MenuItem("Sleight/兔子魔术/Debug/跳到第 4 关", true)]
+        [MenuItem("Sleight/兔子魔术/Debug/跳到第 5 关", true)]
         static bool CanJump() => Application.isPlaying;
 
         // 快进跑一遍三关的开场演示，确认每段都能把魔术演成功（批处理：-executeMethod ...ValidateDemos）
-        [MenuItem("Sleight/兔子魔术/Debug/验证三关演示（会重建场景）")]
-        public static void ValidateDemos()
-        {
-            Build();
-            var game = UnityEngine.Object.FindAnyObjectByType<RabbitTrickGame>();
-            var report = new System.Text.StringBuilder();
-            bool ok = true;
-            RabbitTrickGame.SimulateInEditor = true;
-            try
-            {
-                for (int level = 0; level < RabbitTrickGame.LevelCount; level++)
-                {
-                    bool pass = game.SimulateDemo(level);
-                    ok &= pass;
-                    report.AppendLine((pass ? "PASS  " : "FAIL  ") + game.LastDemoReport);
-                }
-            }
-            finally { RabbitTrickGame.SimulateInEditor = false; }
-
-            // 舞台后侧：拿着兔子在后侧穿过追光不会露馅，回到前侧被照到才会；后侧够不着箱盖
-            game.JumpToLevel(0);
-            if (game.InDemo) game.EndDemo();
-            game.Rules.ShowEmpty(1f, true, true);
-            game.Hands.SelectHand(0);
-            for (int i = 0; i < 200 && Mathf.Abs(game.Hands.BodyPosition.x - 1.55f) > 0.01f; i++)
-                game.Hands.MoveBody(game, Vector2.right * Mathf.Clamp(1.55f - game.Hands.BodyPosition.x, -0.05f, 0.05f));
-            game.Hands.Selected.position = game.RabbitPosition + Vector2.up * 0.2f;
-            game.Hands.Grab(game);
-            bool grabbed = game.Hands.Selected.holding == HandItem.Rabbit;
-            for (int i = 0; i < 40; i++) game.Hands.MoveBody(game, Vector2.up * 0.05f);
-            bool inBack = game.Hands.InBack;
-            game.Audience.ResetLight(game.RabbitPosition.x);
-            game.Evaluate(0.1f);
-            bool hiddenOk = !game.Rules.Failed;
-            game.Hands.Release(game);
-            game.Hands.Selected.position = game.LidHandle;
-            game.Hands.Grab(game);
-            bool lidBlocked = game.Hands.Selected.holding == HandItem.None;
-            game.Hands.Selected.position = game.RabbitPosition + Vector2.up * 0.2f;
-            game.Hands.Grab(game);
-            for (int i = 0; i < 40; i++) game.Hands.MoveBody(game, Vector2.down * 0.05f);
-            game.Evaluate(0.1f);
-            bool frontCaught = game.Rules.Failed;
-            bool laneOk = grabbed && inBack && hiddenOk && lidBlocked && frontCaught;
-            ok &= laneOk;
-            report.AppendLine((laneOk ? "PASS  " : "FAIL  ") + $"back of stage: grabbed={grabbed} inBack={inBack} hiddenInLight={hiddenOk} lidBlocked={lidBlocked} caughtAtFront={frontCaught}");
-            game.ResetTrick();
-
-            Directory.CreateDirectory("Logs");
-            File.WriteAllText("Logs/DemoValidation.txt", report.ToString());
-            Debug.Log("[RabbitTrick] Demo validation\n" + report);
-            if (!ok) throw new InvalidOperationException("Demo validation failed:\n" + report);
-        }
+        [MenuItem("Sleight/兔子魔术/Debug/验证五关演示（会重建场景）")]
+        public static void ValidateDemos() => CampaignValidation.BuildAndValidate();
         static void Jump(int level)
         {
             var game = UnityEngine.Object.FindAnyObjectByType<RabbitTrickGame>();
@@ -96,6 +49,7 @@ namespace Sleight.RabbitTrick.EditorTools
                 File.Copy(ScenePath, "Assets/Scenes/LegacyGame.unity");
             Directory.CreateDirectory(ArtPath);
             AssetDatabase.Refresh();
+            ConfigureAudio();
             var shader = Shader.Find("Sleight/Rabbit Stage");
             if (shader == null) throw new InvalidOperationException("Rabbit Stage shader was not imported.");
             var stage = Material("Stage", shader, 0, 0);
@@ -112,7 +66,7 @@ namespace Sleight.RabbitTrick.EditorTools
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color32(18, 14, 26, 255);
             camera.allowHDR = false;
-            var root = new GameObject("RabbitTrick_FirstAct");
+            var root = new GameObject("FiveTrickShow");
             var game = root.AddComponent<RabbitTrickGame>();
             var view = root.AddComponent<RabbitStageView>();
             var light = root.AddComponent<RandomAudienceLight>();
@@ -160,6 +114,24 @@ namespace Sleight.RabbitTrick.EditorTools
             Debug.Log("[RabbitTrick] New first act saved to Assets/Scenes/Game.unity. Previous scene retained as LegacyGame.unity.");
         }
 
+        static void ConfigureAudio()
+        {
+            const string folder = "Assets/Resources/StageAudio";
+            if (!Directory.Exists(folder)) return;
+            foreach (string file in Directory.GetFiles(folder, "*.ogg"))
+            {
+                string path = file.Replace('\\', '/');
+                var importer = AssetImporter.GetAtPath(path) as AudioImporter;
+                if (importer == null) continue;
+                var settings = importer.defaultSampleSettings;
+                var loadType = path.Contains("TheatreApplause") ? AudioClipLoadType.DecompressOnLoad : AudioClipLoadType.Streaming;
+                if (settings.loadType == loadType && Mathf.Abs(settings.quality - 0.7f) < 0.01f) continue;
+                settings.loadType = loadType; settings.compressionFormat = AudioCompressionFormat.Vorbis; settings.quality = 0.7f;
+                importer.defaultSampleSettings = settings; importer.forceToMono = false;
+                importer.SaveAndReimport();
+            }
+        }
+
         static Material Material(string name, Shader shader, float magician, float unlit)
         {
             string path = $"{ArtPath}/M_{name}.mat";
@@ -186,237 +158,6 @@ namespace Sleight.RabbitTrick.EditorTools
             return sprite;
         }
 
-        public static void BuildAndValidate()
-        {
-            ValidateRules();
-            Build();
-            var game = UnityEngine.Object.FindAnyObjectByType<RabbitTrickGame>();
-            Expect(Vector2.Distance(game.transform.Find("Stage/RabbitBox/BoxDragHandle").position, game.BoxHandle) < 0.001f, "box handle artwork matches interaction position");
-            Expect(Vector2.Distance(game.transform.Find("Stage/RabbitBox/LidHinge/LidHandle").position, game.LidHandle) < 0.001f, "lid handle artwork matches interaction position");
-            ValidateHandsAndFullTrick(game);
-            game.ResetTrick();
-            game.view.UseRuntimeFont();
-            game.view.Draw(game);
-            Canvas.ForceUpdateCanvases();
-            CapturePreview();
-            Directory.CreateDirectory("Logs");
-            File.WriteAllText(ReportPath,
-                "PASS: ordered three-step trick; continuous empty-box demonstration; dark-only insertion; " +
-                "carried and inserted rabbit exposure; closed-box safety; final reveal; reset; independent hands; " +
-                "left-to-right handoff; physical lid dragging; physical box dragging; " +
-                "full trick via body walking and short articulated arms; moving decoy occlusion; lit-only unobstructed presentation; shader and scene references.\n");
-            Debug.Log("[RabbitTrick] ALL VALIDATION PASSED. " + ReportPath);
-            game.ResetTrick();
-            // Do not serialize test positions or machine-specific runtime fonts into the scene.
-        }
-
-        static void Expect(bool condition, string message)
-        {
-            if (!condition) throw new InvalidOperationException("Rabbit trick validation: " + message);
-        }
-
-        static RabbitTrickRules EmptyShown()
-        {
-            var rules = new RabbitTrickRules();
-            rules.Reset();
-            rules.ShowEmpty(0.9f, true, true);
-            Expect(rules.Step == TrickStep.HideRabbit, "lit empty display must advance");
-            return rules;
-        }
-
-        static void ValidateRules()
-        {
-            var rules = new RabbitTrickRules();
-            rules.Reset();
-            Expect(!rules.TryInsert(true, false, false), "cannot skip empty display");
-            rules.ShowEmpty(0.5f, true, true);
-            rules.ShowEmpty(0.5f, true, false);
-            Expect(rules.Step == TrickStep.ShowEmpty && rules.EmptyShowProgress == 0, "empty display must be continuous and lit");
-            rules = EmptyShown();
-            rules.TouchRabbit();
-            rules.CheckExposure(true, false);
-            Expect(rules.Failed, "carried rabbit in light must fail");
-            rules = EmptyShown();
-            Expect(!rules.TryInsert(true, false, true) && rules.Failed, "lit insertion must fail");
-            rules = EmptyShown();
-            Expect(!rules.TryInsert(false, false, false), "closed lid blocks insertion");
-            Expect(rules.TryInsert(true, false, false), "dark insertion must work");
-            rules.CheckExposure(true, true);
-            Expect(rules.Failed, "unclosed loaded box exposes the secret");
-            rules = EmptyShown();
-            rules.TryInsert(true, false, false);
-            Expect(!rules.TryReveal(true, true), "must close the box before final reveal");
-            rules.CloseBox(true);
-            rules.CheckExposure(true, false);
-            Expect(!rules.Failed, "closed loaded box may be illuminated");
-            rules.CheckExposure(true, true);
-            Expect(!rules.Failed, "final opening is a legitimate reveal");
-            Expect(!rules.TryReveal(true, false), "audience must see final reveal");
-            Expect(rules.TryReveal(true, true) && rules.Finished, "final reveal must complete");
-            rules.Reset();
-            Expect(!rules.Failed && !rules.RabbitInside && !rules.RabbitTouched && rules.Step == TrickStep.ShowEmpty, "retry resets all rules");
-        }
-
-        static void ValidateHandsAndFullTrick(RabbitTrickGame game)
-        {
-            game.ResetTrick();
-            game.Hands.SelectHand(1);
-            WalkTo(game, 5.1f);
-            Aim(game, game.LidHandle);
-            game.Hands.Interact(game);
-            Expect(game.Hands.Selected.holding == HandItem.Lid, "nearby hand grabs lid");
-            game.Hands.Move(game, Vector2.up * 0.75f);
-            Expect(game.LidAmount > 0.99f, "fixed arm can open lid");
-            game.Hands.Interact(game);
-            game.Evaluate(0.9f);
-            Expect(game.Rules.Step == TrickStep.HideRabbit, "lit empty-box display advances");
-
-            // 跳舞小人已经去掉：直接让追光停到右边，箱子和兔子都在暗处
-            game.Audience.Scripted = true;
-            game.Audience.ResetLight(8.5f);
-            WalkTo(game, 1.55f);
-            game.Hands.SelectHand(0);
-            Aim(game, game.RabbitPosition);
-            game.Hands.Interact(game);
-            Expect(game.Hands.Selected.holding == HandItem.Rabbit, "left hand picks up rabbit within reach");
-            game.Hands.SelectHand(1);
-            Aim(game, game.RabbitPosition);
-            game.Hands.Interact(game);
-            Expect(game.Hands.Selected.holding == HandItem.Rabbit && game.Hands.Other.holding == HandItem.None, "left-to-right handoff");
-            WalkTo(game, 5.1f);
-            MoveTo(game, game.BoxOpening + Vector2.up * 0.12f);
-            game.Hands.Interact(game);
-            Expect(game.Rules.RabbitInside && !game.Rules.Failed, "walking and carrying to dark box works");
-            MoveTo(game, game.LidHandle);
-            game.Hands.Interact(game);
-            game.Hands.Move(game, Vector2.down * 0.75f);
-            game.Hands.Interact(game);
-            game.Evaluate(0.02f);
-            Expect(game.Rules.Step == TrickStep.RevealRabbit, "close loaded box to arm reveal");
-            WalkTo(game, 5.25f);
-            Aim(game, game.BoxHandle);
-            game.Hands.Interact(game);
-            Expect(game.Hands.Selected.holding == HandItem.Box, "short arm can grab box face");
-            float oldX = game.BoxX;
-            game.Hands.Move(game, Vector2.left * 0.2f);
-            Expect(game.BoxX < oldX, "hand drags box");
-            game.Hands.Interact(game);
-            game.Audience.ResetLight(game.BoxX);
-            Aim(game, game.LidHandle);
-            game.Hands.Interact(game);
-            game.Hands.Move(game, Vector2.up * 0.75f);
-            game.Evaluate(0.02f);
-            Expect(game.Rules.Finished && !game.Rules.Failed, "whole trick succeeds with fixed-length arms");
-            game.Audience.Scripted = false;
-
-            game.ResetTrick();
-            for (int i = 0; i < 2; i++)
-            {
-                game.Hands.SelectHand(i);
-                for (int direction = 0; direction < 16; direction++)
-                {
-                    float angle = direction * Mathf.PI / 8f;
-                    game.Hands.Move(game, new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * 100f);
-                    Vector2 shoulder = game.Hands.Shoulder(i), elbow = game.Hands.Elbow(i), hand = game.Hands.Hands[i].position;
-                    Expect(Mathf.Abs(Vector2.Distance(shoulder, elbow) - game.Hands.upperArm) < 0.002f, "upper arm never stretches");
-                    Expect(Mathf.Abs(Vector2.Distance(elbow, hand) - game.Hands.forearm) < 0.002f, "forearm never stretches");
-                    Expect(Vector2.Distance(shoulder, hand) <= game.Hands.Reach + 0.001f, "hand stays in reach");
-                }
-            }
-            game.ResetTrick();
-            game.Audience.ResetLight(1.3f);
-            game.SetLid(1);
-            game.Evaluate(1f);
-            Expect(game.Rules.Step == TrickStep.ShowEmpty, "empty display in darkness does not count");
-
-            // An opaque MOVING decoy protects a rabbit only while its complete silhouette stays behind the cape.
-            game.ResetTrick();
-            game.Rules.ShowEmpty(1f, true, true);
-            game.Rules.TouchRabbit();
-            game.Audience.Distract(5.6f);
-            game.Audience.SetDancerX(5.6f);
-            game.Audience.Tick(1f);
-            for (int i = 0; i < 5; i++)
-            {
-                game.Audience.SetDancerX(5.6f + i * 0.1f);
-                game.Audience.Tick(0.1f);
-                game.RabbitPosition = new Vector2(game.Audience.DancerX, 1.9f);
-                Expect(game.Audience.Illuminates(game.RabbitPosition), "covered route is actually lit");
-                game.Evaluate(0.1f);
-                Expect(!game.Rules.Failed, "moving cape protects rabbit in the light");
-            }
-            game.RabbitPosition += Vector2.left * 0.65f;
-            game.Evaluate(0.01f);
-            Expect(game.Rules.Failed, "rabbit leaving cape is immediately exposed");
-
-            // Loading in light is legal behind the cape; presentation must be visible and lit.
-            game.ResetTrick();
-            game.Rules.ShowEmpty(1f, true, true);
-            game.SetLid(1f);
-            game.Audience.Distract(game.BoxX);
-            game.Audience.SetDancerX(game.BoxX);
-            game.Audience.Tick(1f);
-            game.RabbitPosition = game.BoxOpening;
-            Expect(game.TryPutRabbit(), "cape permits concealed loading inside spotlight");
-            game.Evaluate(0.1f);
-            Expect(!game.Rules.Failed, "cape protects loaded open box");
-            game.SetLid(0f);
-            game.SetLid(1f);
-            game.Evaluate(0.1f);
-            Expect(!game.Rules.Finished, "cannot present through cape");
-            game.Audience.SetDancerX(game.BoxX + 0.95f);
-            game.Audience.Tick(1f);
-            game.Evaluate(0.1f);
-            Expect(game.Rules.Finished, "lit unobstructed final reveal succeeds");
-            game.ResetTrick();
-        }
-
-        static void WalkTo(RabbitTrickGame game, float x)
-        {
-            for (int i = 0; i < 500 && Mathf.Abs(game.Hands.BodyPosition.x - x) > 0.01f; i++)
-            {
-                game.Hands.MoveBody(game, Vector2.right * Mathf.Clamp(x - game.Hands.BodyPosition.x, -0.045f, 0.045f));
-                game.Audience.Tick(0.02f);
-                game.Evaluate(0.02f);
-                Expect(!game.Rules.Failed, "walking path stays safe");
-            }
-            Expect(Mathf.Abs(game.Hands.BodyPosition.x - x) <= 0.02f, "body reaches walking target");
-        }
-        static void Aim(RabbitTrickGame game, Vector2 point) => game.Hands.Selected.position = game.Hands.ClampHand(game.Hands.Active, point);
-        static void MoveTo(RabbitTrickGame game, Vector2 target)
-        {
-            for (int i = 0; i < 300 && Vector2.Distance(game.Hands.Selected.position, target) > 0.015f; i++)
-            {
-                game.Hands.Move(game, Vector2.ClampMagnitude(target - game.Hands.Selected.position, 0.04f));
-                game.Audience.Tick(0.016f);
-                game.Evaluate(0.016f);
-                Expect(!game.Rules.Failed, "hand transfer stays concealed");
-            }
-            Expect(Vector2.Distance(game.Hands.Selected.position, target) < 0.03f, "hand reaches target without stretching");
-        }
-        static void CapturePreview()
-        {
-            var camera = Camera.main;
-            var canvas = UnityEngine.Object.FindAnyObjectByType<Canvas>();
-            var target = new RenderTexture(1600, 900, 24);
-            camera.targetTexture = target;
-            canvas.renderMode = RenderMode.ScreenSpaceCamera;
-            canvas.worldCamera = camera;
-            canvas.planeDistance = 1;
-            Canvas.ForceUpdateCanvases();
-            camera.Render();
-            var previous = RenderTexture.active;
-            RenderTexture.active = target;
-            var image = new Texture2D(1600, 900, TextureFormat.RGB24, false);
-            image.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0);
-            image.Apply();
-            Directory.CreateDirectory("Logs");
-            File.WriteAllBytes("Logs/RabbitTrickPreview.png", image.EncodeToPNG());
-            RenderTexture.active = previous;
-            camera.targetTexture = null;
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            UnityEngine.Object.DestroyImmediate(image);
-            UnityEngine.Object.DestroyImmediate(target);
-        }
+        public static void BuildAndValidate() => CampaignValidation.BuildAndValidate();
     }
 }

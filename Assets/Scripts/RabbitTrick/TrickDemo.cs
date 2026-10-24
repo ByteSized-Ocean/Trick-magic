@@ -13,7 +13,7 @@ namespace Sleight.RabbitTrick
         readonly RabbitTrickGame game;
         int index;
         float stepTime;
-        const float StepTimeout = 8f;
+        const float StepTimeout = 24f;
 
         public string Caption { get; private set; } = "";
         public bool Done => index >= steps.Count;
@@ -58,6 +58,18 @@ namespace Sleight.RabbitTrick
         }
 
         public TrickDemo Hand(int i) { steps.Add(_ => { game.Hands.SelectHand(i); return true; }); return this; }
+        public TrickDemo Depth(float depth)
+        {
+            steps.Add(dt =>
+            {
+                float targetY = Mathf.Lerp(DualHandController.FrontY, DualHandController.BackY, depth);
+                float remaining = targetY - game.Hands.BodyPosition.y;
+                if (Mathf.Abs(remaining) < 0.005f) return true;
+                game.Hands.MoveBody(game, Vector2.up * Mathf.Clamp(remaining / 0.55f, -WalkSpeed * dt * 0.65f, WalkSpeed * dt * 0.65f));
+                return false;
+            });
+            return this;
+        }
 
         public TrickDemo HandTo(Func<Vector2> target)
         {

@@ -15,6 +15,20 @@ namespace Sleight.RabbitTrick
         public override string[] StepNames { get; } =
             { "01  RAISE HER INTO THE LIGHT", "02  PASS THE HOOP AROUND HER", "03  LOWER HER BACK DOWN" };
         public override float StartLightX => TableX;
+        protected override LooseProp[] MovableProps => new[] { hoop };
+        public float LiftAmount => lift;
+        public bool SupportCovered
+        {
+            get
+            {
+                if (lift <= 0.05f) return true;
+                if (game.Hands.Depth > 0.24f) return false;
+                var body = game.Hands.BodyPosition;
+                var silhouette = new Rect(body.x - 0.23f, body.y + 0.35f, 0.46f, 2.25f);
+                return silhouette.Contains(new Vector2(TableX + 0.05f, ClothTop + 0.03f)) &&
+                    silhouette.Contains(new Vector2(TableX + 0.05f, BoardY - 0.02f));
+            }
+        }
 
         const float TableX = 5.2f, Floor = 1.18f, ClothTop = 1.95f, TableHalf = 1.0f;
         const float LeverX = 5.52f, LeverLowY = 1.55f, LeverTravel = 0.35f;
@@ -25,6 +39,8 @@ namespace Sleight.RabbitTrick
 
         float lift, liftVel;           // 0 = 躺在桌上，1 = 最高
         float floatTime;
+        float lastLift, observedLower;
+        bool lowerInvalid;
         int hoopFrom;                  // 套环从哪一侧开始：-1 左，+1 右，0 还没开始
         readonly LooseProp hoop = new LooseProp { shape = new Rect(-HoopRadius, 0f, HoopRadius * 2f, HoopRadius * 2f), floorY = StandTop };
 
@@ -40,6 +56,7 @@ namespace Sleight.RabbitTrick
         protected override void OnReset()
         {
             lift = liftVel = floatTime = 0f;
+            lastLift = observedLower = 0f; lowerInvalid = false;
             hoopFrom = 0;
             hoop.position = new Vector2(StandX, StandTop);
             hoop.floorY = StandTop;     // 挂在架子上
@@ -62,7 +79,7 @@ namespace Sleight.RabbitTrick
             }
             float leverDist = Vector2.Distance(hand.position, LeverHandle);
             bool leverOk = !InBack && leverDist <= 0.34f && Vector2.Distance(game.Hands.Shoulder(index), LeverHandle) <= game.Hands.Reach;
-            float hoopDist = hoop.Held || hoop.back != InBack ? float.MaxValue : RingDistance(hand.position);
+            float hoopDist = hoop.Held || !game.Hands.AtDepth(hoop.depth) ? float.MaxValue : RingDistance(hand.position);
             bool hoopOk = hoopDist <= 0.2f;
             if (!leverOk && !hoopOk) return false;
 
@@ -132,7 +149,15 @@ namespace Sleight.RabbitTrick
             for (int i = 0; i < 2; i++)
                 view.GloveAlpha[i] = i == leverHand ? 0.35f : 1f;
 
-            bool boardLit = Lit(BoardCenter, 0.2f);
+            bool boardLit = Lit(BoardCenter);
+            if (lift > 0.05f && !SupportCovered &&
+                (Lit(new Vector2(TableX + 0.05f, ClothTop + 0.04f)) || Lit(new Vector2(TableX + 0.05f, BoardY - 0.03f))))
+            {
+                Expose("The exposed support rod was seen! Stand directly IN FRONT of it while she floats.");
+                return;
+            }
+            float previousLift = lastLift;
+            lastLift = lift;
             if (Step == 0)
             {
                 floatTime = Floating && boardLit ? floatTime + dt : 0f;
@@ -151,7 +176,9 @@ namespace Sleight.RabbitTrick
                 float left = TableX - BoardHalf - 0.05f, right = TableX + BoardHalf + 0.05f;
                 var c = HoopCenter;
                 bool inBand = hoop.Held && !hoop.back && Mathf.Abs(c.y - BoardCenter.y) <= 0.4f;   // 要在前侧、观众看得见的地方套
-                if (!inBand || !Floating || !boardLit) { hoopFrom = 0; StepProgress = 0f; return; }
+                bool hoopLit = Lit(c + Vector2.left * HoopRadius) && Lit(c + Vector2.right * HoopRadius) &&
+                    Lit(c + Vector2.up * HoopRadius) && Lit(c + Vector2.down * HoopRadius);
+                if (!inBand || !Floating || !boardLit || !hoopLit) { hoopFrom = 0; StepProgress = 0f; return; }
                 if (hoopFrom == 0)
                 {
                     if (c.x < left) hoopFrom = -1;
@@ -163,13 +190,24 @@ namespace Sleight.RabbitTrick
                 if (t >= 1f)
                 {
                     Step = 2;
+                    observedLower = 0f; lowerInvalid = false;
                     StepProgress = 0f;
                     game.Notify("Not a string in sight! Lower her gently back onto the table.");
                 }
                 return;
             }
 
-            if (Step == 2 && leverHand >= 0 && lift <= 0.02f) Step = 3;
+            if (Step == 2)
+            {
+                if (lift >= 0.98f) { observedLower = 0f; lowerInvalid = false; }
+                if (lift < previousLift)
+                {
+                    if (!boardLit || leverHand < 0) lowerInvalid = true;
+                    else observedLower += previousLift - lift;
+                }
+                StepProgress = Mathf.Clamp01(observedLower);
+                if (leverHand >= 0 && lift <= 0.02f && boardLit && !lowerInvalid && observedLower >= 0.8f) Step = 3;
+            }
         }
 
         int HeldBy(int id)
@@ -182,17 +220,16 @@ namespace Sleight.RabbitTrick
         public override void AddDemo(TrickDemo d)
         {
             d.Say("Take the hoop from its stand first.")
-             .Walk(2.1f).Hand(0).HandTo(() => HoopCenter + Vector2.right * HoopRadius).Grab()
-             .Say("1  Reach under the tablecloth, hold the hidden lever and push UP.")
-             .Walk(5.45f).Hand(1).HandTo(() => LeverHandle).Grab().HandBy(Vector2.up * 0.4f)
+             .Walk(2.1f).Hand(0).HandTo(() => hoop.position).Grab()
+             .Say("1  Stand on the marked spot so YOUR BODY hides the rod. Keep it covered in the light.")
+             .Walk(5.25f).Hand(1).HandTo(() => LeverHandle).Grab().HandBy(Vector2.up * 0.4f)
              .Until(() => Step >= 1)
              .Say("2  Keep the lever up, switch hands and pass the hoop along her body in the light.")
-             .Walk(5.6f).Hand(0).HandTo(() => new Vector2(4.85f, BoardCenter.y))
-             .HandTo(() => new Vector2(5.6f, BoardCenter.y)).Walk(6.0f)
-             .HandTo(() => new Vector2(6.4f, BoardCenter.y))
+             .Hand(0).HandTo(() => new Vector2(4.5f, BoardCenter.y - HoopRadius))
+             .HandTo(() => new Vector2(5.9f, BoardCenter.y - HoopRadius))
              .Until(() => Step >= 2)
-             .Say("3  Step back toward the lever and lower her gently onto the table.")
-             .Walk(5.45f).Hand(1).HandBy(Vector2.down * 0.4f)
+             .Say("3  Keep your body in front of the rod and lower her onto the table IN THE LIGHT.")
+             .Hand(1).HandBy(Vector2.down * 0.4f)
              .Wait(0.5f);
         }
 
@@ -203,9 +240,9 @@ namespace Sleight.RabbitTrick
                 return Step == 2 ? "Push DOWN slowly. Do not let go while she is in the air." : "UP raises her. Keep holding E, then press F to use your other hand.";
             if (sel.holding == HandItem.Custom && sel.custom == HoopId)
                 return Step == 1 ? "Start beside her head or feet, then sweep the hoop along her body while she floats in the light." : "The hoop proves there are no strings.";
-            if (Step == 0) return "The hidden lever is under the RIGHT side of the tablecloth. Hold E on it and push UP.";
+            if (Step == 0) return "Take the hoop. Stand on the floor mark to hide the rod with YOUR BODY. Raise her IN THE LIGHT.";
             if (Step == 1) return HeldBy(LeverId) >= 0 ? "Switch hands (F) and fetch the hoop from the stand on the left." : "Keep her up with the lever while you use the hoop.";
-            return "Lower her with the lever until she rests on the table.";
+            return lowerInvalid ? "That descent was not seen. Raise her fully and lower her again IN THE LIGHT." : "Stay in front of the rod. Lower her smoothly while the whole performance remains IN THE LIGHT.";
         }
 
         // ------------------------------------------------------------ 画面
@@ -214,6 +251,7 @@ namespace Sleight.RabbitTrick
         {
             var gold = Hex(0xC8962E);
             var cream = Hex(0xF2DEBC);
+            view.Disc("StandHereToHideRod", root, new Vector2(TableX + 0.05f, Floor - 0.07f), new Vector2(0.46f, 0.07f), new Color(0.4f, 0.9f, 0.8f, 0.65f), 22);
 
             // 撑杆和拉杆画在桌布后面，看不见
             rod = view.Line("HiddenRod", root, 0.05f, Hex(0x241C2C), 19, 2);
@@ -259,7 +297,8 @@ namespace Sleight.RabbitTrick
             rod.SetPosition(1, new Vector3(TableX + 0.05f, BoardY, 0));
             lever.position = new Vector3(LeverHandle.x, LeverHandle.y, -0.05f);
             hoopT.position = new Vector3(hoop.position.x, hoop.position.y, -0.1f);
-            ring.sortingOrder = hoop.back ? 12 : 26;
+            ring.sortingOrder = 26 - Mathf.RoundToInt(hoop.depth * 14f);
+            SetDepth(hoopT, hoop.depth);
         }
 
         static Color Hex(uint rgb) => new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 255);

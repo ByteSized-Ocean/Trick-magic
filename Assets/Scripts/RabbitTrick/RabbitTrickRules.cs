@@ -25,6 +25,11 @@ namespace Sleight.RabbitTrick
         }
 
         public void TouchRabbit() => RabbitTouched = true;
+        public void TakeRabbit()
+        {
+            RabbitInside = false; RabbitTouched = true;
+            if (Step == TrickStep.RevealRabbit) Step = TrickStep.HideRabbit;
+        }
 
         public void ShowEmpty(float delta, bool fullyOpen, bool boxLit)
         {
@@ -36,7 +41,7 @@ namespace Sleight.RabbitTrick
 
         public bool TryInsert(bool fullyOpen, bool rabbitLit, bool openingLit)
         {
-            if (Failed || Step != TrickStep.HideRabbit || !fullyOpen || RabbitInside) return false;
+            if (Failed || !fullyOpen || RabbitInside) return false;
             if (rabbitLit || openingLit)
             {
                 Expose("The audience saw you slip the rabbit into the box.");

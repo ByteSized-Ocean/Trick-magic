@@ -14,6 +14,8 @@ namespace Sleight.RabbitTrick
         public override string[] StepNames { get; } =
             { "01  PUT HER IN, IN THE LIGHT", "02  SWAP HER FOR THE DUMMY", "03  OPEN THE CABINET IN THE LIGHT" };
         public override float StartLightX => CabX;
+        protected override LooseProp[] MovableProps => new[] { assistant, dummy };
+        public override void DirectAudience(float dt) => game.Audience.Follow(BalletOnStage ? BalletX : CabX, 3f, BalletOnStage ? "BALLERINA" : "CABINET");
 
         const float CabX = 5.6f, Floor = 1.18f;
         const float CurtainLeft = 4.98f, CurtainClosedEdge = 6.2f, CurtainOpenEdge = 5.12f, CurtainHandleY = 2.35f;
@@ -95,7 +97,7 @@ namespace Sleight.RabbitTrick
                 var p = Prop(id);
                 if (p.Held) continue;
                 if (p.inside && !(open > 0.5f || hatch > 0.5f)) continue;   // 柜门都关着就拿不到里面的东西
-                if ((p.inside ? false : p.back) != InBack) continue;        // 只抓得到自己这一层的东西
+                if (!game.Hands.AtDepth(p.inside ? 0 : p.depth)) continue;
                 float d = p.DistanceTo(hand.position);
                 if (d <= PropRadius && d < bestDist) { best = id; bestDist = d; }
             }
@@ -174,7 +176,7 @@ namespace Sleight.RabbitTrick
         public override void Tick(float dt)
         {
             // 第一步完成之前，追光一直定在柜子上不动；之后交给芭蕾女郎和原来的走法
-            if (Step == 0) game.Audience.Follow(CabX);
+            if (Step == 0) game.Audience.Follow(CabX, 3f, "CABINET");
             TickBallet(dt);
             bool hatchHeld = HeldBy(HatchId) >= 0;
             if (!hatchHeld && hatch > 0f)
@@ -237,7 +239,7 @@ namespace Sleight.RabbitTrick
             if (balletTime >= total) return;
             balletTime += dt;
             if (balletTime >= total) { game.Audience.StopFollowing(); return; }
-            game.Audience.Follow(BalletX);
+            game.Audience.Follow(BalletX, 3f, "BALLERINA");
         }
 
         float BalletX
@@ -447,8 +449,11 @@ namespace Sleight.RabbitTrick
             curtainHandle.position = new Vector3(CurtainHandle.x, CurtainHandle.y, -0.1f);
             assistantT.position = new Vector3(assistant.position.x, assistant.position.y, -0.05f);
             dummyT.position = new Vector3(dummy.position.x, dummy.position.y, -0.05f);
-            SetBehind(assistantT, assistant.back && !assistant.inside);
-            SetBehind(dummyT, dummy.back && !dummy.inside);
+            StageDepth.Set(cabinet, 0.21f);
+            StageDepth.Set(curtainPivot, 0.18f);
+            StageDepth.Set(curtainHandle, 0.18f, 4);
+            SetDepth(assistantT, assistant.inside ? 0.2f : assistant.depth);
+            SetDepth(dummyT, dummy.inside ? 0.2f : dummy.depth);
         }
 
         static Color Hex(uint rgb) => new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 255);

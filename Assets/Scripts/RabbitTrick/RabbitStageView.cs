@@ -341,7 +341,7 @@ namespace Sleight.RabbitTrick
             var ui = new GameObject("RabbitHUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             ui.transform.SetParent(transform, false);
             ui.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
-            ui.GetComponent<Canvas>().sortingOrder = 100;
+            ui.GetComponent<Canvas>().sortingOrder = 25000;
             ui.GetComponent<Canvas>().overrideSorting = true;
             var scaler = ui.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -367,6 +367,9 @@ namespace Sleight.RabbitTrick
             distractionProgress.fillMethod = Image.FillMethod.Horizontal;
             hintLabel = Label("Hint", parent, new Vector2(130, -812), new Vector2(1340, 40), "", 23, cream);   // 压在台口下沿以下，不挡舞台
             hintLabel.alignment = TextAnchor.MiddleCenter;
+            hintLabel.resizeTextForBestFit = true;
+            hintLabel.resizeTextMinSize = 16;
+            hintLabel.resizeTextMaxSize = 23;
             controls = Label("Controls", parent, new Vector2(100, -857), new Vector2(1400, 36), "ARROWS / WASD  Move hand     F  Switch hand     E  Grab / release / pass     R  Restart", 19, new Color(0.8f, 0.76f, 0.85f));
             controls.alignment = TextAnchor.MiddleCenter;
             resultPanel = Panel("Result", parent, new Vector2(340, -300), new Vector2(920, 250), new Color(0.07f, 0.05f, 0.11f, 0.97f)).gameObject;
@@ -393,8 +396,9 @@ namespace Sleight.RabbitTrick
             foreach (var t in new[] { box, rabbit })
                 if (t != null) t.gameObject.SetActive(rabbitLevel);
             // 第 1 关的跳舞小人已经去掉（团队决定），三关都不显示
-            foreach (var t in new[] { dancer, dancerBase, dancerHandle })
-                if (t != null) t.gameObject.SetActive(false);
+            foreach (var t in new[] { dancer, dancerBase })
+                if (t != null) t.gameObject.SetActive(rabbitLevel);
+            if (dancerHandle != null) dancerHandle.gameObject.SetActive(false);
             var rest = world != null ? world.Find("RabbitRest") : null;
             if (rest != null) rest.gameObject.SetActive(rabbitLevel);
             GloveAlpha[0] = GloveAlpha[1] = 1f;
@@ -407,7 +411,7 @@ namespace Sleight.RabbitTrick
             DrawDepth(game);
             lid.localRotation = Quaternion.Euler(0, 0, game.LidAmount * 70f);
             emptyWindow.enabled = game.LidAmount > 0.4f;
-            rabbit.position = game.RabbitPosition;
+            rabbit.position = new Vector3(game.RabbitPosition.x, game.RabbitPosition.y, game.RabbitDepth * 1.5f);
             rabbit.gameObject.SetActive(game.Trick == null && (!game.Rules.RabbitInside || game.LidAmount > 0.75f || game.Rules.Finished));
             if (game.Rules.RabbitInside)
             {
@@ -421,6 +425,8 @@ namespace Sleight.RabbitTrick
             Shader.SetGlobalFloat("_RabbitSpotHidden", hidden);
             if (beamLine != null)
             {
+                beamLine.startWidth = game.Audience.topRadius * 2f;
+                beamLine.endWidth = game.Audience.bottomRadius * 2f;
                 var bc = BeamColor; bc.a *= 1f - hidden;
                 beamLine.startColor = beamLine.endColor = bc;
             }
@@ -430,7 +436,7 @@ namespace Sleight.RabbitTrick
             for (int i = 0; i < 2; i++)
             {
                 Vector2 hand = game.Hands.Hands[i].position;
-                gloves[i].position = hand;
+                gloves[i].position = new Vector3(hand.x, hand.y, game.Hands.Depth * 1.5f - 0.3f);
                 DrawGrip(i, game.Hands.Hands[i].gripping);
                 foreach (var sr in gloves[i].GetComponentsInChildren<SpriteRenderer>())
                 {
@@ -445,11 +451,14 @@ namespace Sleight.RabbitTrick
                 arms[i].SetPosition(0, shoulder + bodyOffset);
                 arms[i].SetPosition(1, (Vector3)game.Hands.Elbow(i) + bodyOffset * 0.5f);
                 arms[i].SetPosition(2, hand);
-                arms[i].sortingOrder = game.Hands.BodyPosition.y > 1.4f ? 12 : 25;
+                arms[i].sortingOrder = 25;
+                arms[i].transform.localPosition = new Vector3(0, 0, game.Hands.Depth * 1.5f - 0.2f);
+                StageDepth.Set(arms[i].transform, game.Hands.Depth, 1);
+                StageDepth.Set(gloves[i], game.Hands.Depth, 4);
             }
-            float dance = game.Audience.Dancing ? Mathf.Sin(Time.time * 10) : 0;
+            float dance = game.Level == 0 && game.StepIndex > 0 ? Mathf.Sin(Time.time * 10) : 0;
             dancer.localRotation = Quaternion.identity;
-            dancer.position = new Vector3(game.Audience.DancerX, 1.4f, -0.35f);
+            dancer.position = new Vector3(8.25f, 1.4f + Mathf.Abs(dance) * 0.12f, -0.35f);
             dancerBase.position = new Vector3(game.Audience.DancerX, 1.3f, -0.35f);
             dancerHandle.position = game.DancerHandle;
             for (int i = 0; i < 4; i++)
@@ -485,8 +494,9 @@ namespace Sleight.RabbitTrick
             var sr = magician.GetComponent<SpriteRenderer>();
             sr.flipX = facingLeft;
             bodyOffset = new Vector3(0f, bob + breathe, 0f);
-            magician.position = new Vector3(body.x, body.y, -0.2f) + bodyOffset;
-            int baseOrder = body.y > 1.4f ? 10 : 24;
+            float depth = Mathf.InverseLerp(DualHandController.FrontY, DualHandController.BackY, body.y);
+            magician.position = new Vector3(body.x, body.y, depth * 1.5f - 0.2f) + bodyOffset;
+            int baseOrder = Mathf.RoundToInt(Mathf.Lerp(24f, 10f, depth));
             sr.sortingOrder = baseOrder;
 
             float face = facingLeft ? -1f : 1f;
@@ -502,7 +512,8 @@ namespace Sleight.RabbitTrick
                 legs[i].SetPosition(1, knee);
                 legs[i].SetPosition(2, foot);
                 legs[i].sortingOrder = baseOrder - (i == 0 ? 2 : 1);
-                shoes[i].position = new Vector3(foot.x + face * 0.07f, foot.y - 0.02f, 0);
+                legs[i].transform.localPosition = new Vector3(0, 0, depth * 1.5f - 0.2f);
+                shoes[i].position = new Vector3(foot.x + face * 0.07f, foot.y - 0.02f, depth * 1.5f - 0.2f);
                 shoes[i].localRotation = Quaternion.Euler(0, 0, face * Mathf.Max(0f, Mathf.Cos(ph)) * 12f * walkBlend);
                 shoes[i].GetComponent<SpriteRenderer>().sortingOrder = baseOrder - (i == 0 ? 2 : 1);
             }
@@ -771,21 +782,22 @@ namespace Sleight.RabbitTrick
         void DrawDepth(RabbitTrickGame game)
         {
             bool back = game.Hands.InBack;
-            var shade = back ? new Color(0.6f, 0.58f, 0.7f, 1f) : Color.white;
+            var shade = Color.Lerp(Color.white, new Color(0.6f, 0.58f, 0.7f, 1f), game.Hands.Depth);
             magician.GetComponent<SpriteRenderer>().color = shade;
+            magician.GetComponent<SpriteRenderer>().sortingOrder = 24;
+            StageDepth.Set(magician, game.Hands.Depth);
+            StageDepth.Set(box, 0.2f); StageDepth.Set(dancer, 0.12f); StageDepth.Set(dancerBase, 0.12f);
             for (int i = 0; i < 2; i++)
             {
                 if (legs[i] == null) continue;
                 var c = (i == 0 ? Hex(0x1A2133) : Hex(0x222B42)) * shade;
                 c.a = 1f;
                 legs[i].startColor = legs[i].endColor = c;
+                StageDepth.Set(legs[i].transform, game.Hands.Depth, -2);
+                StageDepth.Set(shoes[i], game.Hands.Depth, -1);
             }
             if (rabbit == null) return;
-            foreach (var sr in rabbit.GetComponentsInChildren<SpriteRenderer>(true))
-            {
-                if (!rabbitOrders.TryGetValue(sr, out int order)) rabbitOrders[sr] = order = sr.sortingOrder;
-                sr.sortingOrder = game.RabbitBack && !game.Rules.RabbitInside ? order - 16 : order;
-            }
+            StageDepth.Set(rabbit, game.Rules.RabbitInside ? 0.21f : game.RabbitDepth, 3);
         }
 
         static Vector2 Knee(Vector2 hip, Vector2 foot, float face)
@@ -818,16 +830,14 @@ namespace Sleight.RabbitTrick
 
         void UpdateHud(RabbitTrickGame game)
         {
-            bool zh = Chinese;
-            string[] names = zh && game.Trick == null ? new[] { "01  向观众展示空箱", "02  在暗处藏入兔子并关箱", "03  当着观众开箱变兔子" }
-                : game.StepNames;
+            string[] names = game.StepNames;
             int step = game.StepIndex;
             for (int i = 0; i < 3; i++)
             {
                 stepLabels[i].resizeTextForBestFit = true;
                 stepLabels[i].resizeTextMinSize = 12;
                 stepLabels[i].resizeTextMaxSize = 20;
-                stepLabels[i].text = (i < step ? (zh ? "完成  " : "DONE  ") : "") + (i < names.Length ? names[i] : "");
+                stepLabels[i].text = (i < step ? "DONE  " : "") + (i < names.Length ? names[i] : "");
                 stepLabels[i].color = i < step ? teal : i == step ? cream : new Color(0.5f, 0.46f, 0.56f);
                 stepBars[i].color = i <= step ? teal : new Color(0.25f, 0.22f, 0.3f);
             }
@@ -835,40 +845,37 @@ namespace Sleight.RabbitTrick
             // 进度条放在当前这一步下面
             showProgress.rectTransform.anchoredPosition = new Vector2(34, -86 - Mathf.Clamp(step, 0, 2) * 47);
             if (stepsTitle != null) stepsTitle.text = Ordinal(game.Level + 1) + " TRICK: " + game.TrickName;
-            handLabel.text = zh ? (game.Hands.Active == 0 ? "正在控制：左手" : "正在控制：右手") + "    F 切换    按住 E 抓取 / 松开 E 放下"
-                : (game.Hands.Active == 0 ? "CONTROLLING: LEFT HAND" : "CONTROLLING: RIGHT HAND") + "    F  SWITCH    HOLD E  GRAB / LET GO  DROP";
-            gazeLabel.text = game.Audience.Dancing
-                ? (zh ? "跳舞小人吸引中  " : "DISTRACTED  ") + Mathf.CeilToInt(game.Audience.DanceRemaining) + "s"
-                : (zh ? (game.Audience.Moving ? "观众正在转移目光" : "观众正看着亮处") : (game.Audience.Moving ? "THE AUDIENCE IS LOOKING AWAY" : "THE AUDIENCE IS WATCHING THE LIGHT"));
+            handLabel.text = (game.Hands.Active == 0 ? "CONTROLLING: LEFT HAND" : "CONTROLLING: RIGHT HAND") + "    F  SWITCH    HOLD E  GRAB / LET GO  DROP";
+            handLabel.text += "   DEPTH " + Mathf.RoundToInt(game.Hands.Depth * 100f) + "%";
             distractionProgress.fillAmount = game.Audience.DanceRemaining / 12f;
+            gazeLabel.text = "SPOTLIGHT: " + game.Audience.FocusName;
             if (game.Audience.Dancing && game.Audience.CoversRabbit(game.RabbitPosition) && game.Audience.Illuminates(game.RabbitPosition))
-                gazeLabel.text += zh ? "  ·  兔子被遮住了" : "  / RABBIT COVERED";
-            hintLabel.text = game.InDemo ? game.DemoCaption : game.Hint(zh);
+                gazeLabel.text += "  / RABBIT COVERED";
+            hintLabel.text = game.InDemo ? game.DemoCaption : game.Hint(false);
             DrawDemoBanner(game);
             if (Application.isPlaying)
             {
                 var tv = GetComponent<DemoTelevision>();
                 if (tv == null) tv = gameObject.AddComponent<DemoTelevision>();
-                string skipText = game.CanSkipDemo ? "PRESS ANY KEY TO SKIP THE DEMO"
+                string skipText = game.CanSkipDemo ? "SPACE / ENTER: PLAY THIS TRICK    P: MENU"
                     : "YOU CAN SKIP IN " + Mathf.CeilToInt(RabbitTrickGame.DemoSkipLock - game.DemoAge) + "...";
                 tv.Show(game.InDemo, this, "HOW TO PERFORM THE " + Ordinal(game.Level + 1).ToUpper() + " TRICK:  " + game.TrickName, game.DemoCaption, skipText);
-                DrawReplayButton(game);
+                if (replayButton != null) replayButton.gameObject.SetActive(false);
             }
-            if (game.InDemo) controls.text = "HOW TO PLAY THIS TRICK  /  PRESS ANY KEY TO SKIP";
-            else controls.text = zh ? "A D  左右走     W / S  去舞台后侧 / 前侧     方向键  移动手     F  切换手     按住 E  抓取     R  重试"
-                : "A D  Walk     W / S  Back / front of stage     ARROWS  Hand     F  Switch hand     Hold E  Grab     R  Retry";
+            if (game.InDemo) controls.text = "DEMONSTRATION  /  SPACE OR ENTER TO PLAY  /  P MENU";
+            else controls.text = "A D  Walk     HOLD W / S  Smooth depth     ARROWS  Hand     F  Switch hand     Hold E  Grab     P  Menu";
             // 被轰下台时先让东西飞一会儿，再弹结算面板，免得面板挡住魔术师
             resultPanel.SetActive((game.IsFailed || game.IsFinished) && !game.ChangingLevel && !game.InDemo && !(game.Booed && game.ResultAge < 3.5f));
             if (game.IsFailed)
             {
-                resultTitle.text = zh ? "露馅了！" : game.Booed ? "BOOED OFF THE STAGE!" : "CAUGHT!";
-                resultBody.text = zh ? game.FailureReason + "\n按 R 重试这场魔术" : game.FailureReason + "\nPress R to try again.";
+                resultTitle.text = game.Booed ? "BOOED OFF THE STAGE!" : "CAUGHT!";
+                resultBody.text = game.FailureReason + "\nPress P for the menu, then click Restart or press R.";
             }
             else if (game.IsFinished)
             {
-                resultTitle.text = zh && game.Trick == null ? "空箱变出了兔子！" : game.SuccessTitle;
+                resultTitle.text = game.SuccessTitle;
                 bool last = game.Level >= RabbitTrickGame.LevelCount - 1;
-                resultBody.text = zh ? "魔术成功" : Ordinal(game.Level + 1).ToUpper() + " TRICK COMPLETE  /  " + (last ? "THE SHOW STARTS AGAIN" : "NEXT TRICK COMING UP");
+                resultBody.text = Ordinal(game.Level + 1).ToUpper() + " TRICK COMPLETE  /  " + (last ? "RETURNING TO MAIN MENU" : "NEXT TRICK COMING UP");
             }
             var c = flash.color;
             c.a = game.IsFailed && !game.Booed ? Mathf.Max(0, 0.45f - game.ResultAge) : 0;
@@ -903,6 +910,7 @@ namespace Sleight.RabbitTrick
             sr.sharedMaterial = stageMaterial;
             sr.color = color;
             sr.sortingOrder = order;
+            if (order >= 40) StageDepth.Foreground(child, order);
             if (order <= -24) child.localPosition = new Vector3(position.x, position.y, 3f);
             if (art != null)
                 child.localScale = new Vector3(size.x / Mathf.Max(0.01f, art.bounds.size.x), size.y / Mathf.Max(0.01f, art.bounds.size.y), 1);
@@ -919,6 +927,7 @@ namespace Sleight.RabbitTrick
             line.startWidth = line.endWidth = width;
             line.startColor = line.endColor = color;
             line.sortingOrder = order;
+            if (order >= 40) StageDepth.Foreground(go.transform, order);
             line.numCapVertices = 5;
             return line;
         }

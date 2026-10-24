@@ -22,7 +22,7 @@ namespace Sleight.RabbitTrick
             if (!open || game == null) return;
             float scale = Mathf.Max(1f, Screen.height / 720f);
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
-            GUILayout.BeginArea(new Rect(Screen.width / scale - 330f, 260f, 310f, 300f), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(Screen.width / scale - 330f, 260f, 310f, 390f), GUI.skin.box);
             GUILayout.Label("DEBUG  (F10 to close)");
             GUILayout.Label("Now: " + Ordinal(game.Level + 1) + " TRICK  /  step " + (game.StepIndex + 1));
             for (int i = 0; i < RabbitTrickGame.LevelCount; i++)

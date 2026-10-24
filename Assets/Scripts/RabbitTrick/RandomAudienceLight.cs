@@ -10,8 +10,10 @@ namespace Sleight.RabbitTrick
         public bool Scripted { get; set; }
         // 跟随某个东西（第 2 关的芭蕾女郎）：追光一直对着 Follow 给的位置，不随机走
         public bool Following { get; private set; }
-        float followTarget;
-        public void Follow(float x) { Following = true; followTarget = x; }
+        float followTarget, followSpeed = 3f;
+        public string FocusName { get; private set; } = "MAGICIAN";
+        public void Follow(float x, float speed = 3f, string subject = "PERFORMER")
+        { Following = true; followTarget = x; followSpeed = speed; FocusName = subject; }
         public void StopFollowing()
         {
             if (!Following) return;
@@ -47,7 +49,7 @@ namespace Sleight.RabbitTrick
         {
             if (Following && !Scripted)
             {
-                X = Mathf.MoveTowards(X, followTarget, dt * 3f);
+                X = Mathf.MoveTowards(X, followTarget, dt * followSpeed);
                 ApplyShader();
                 return;
             }
@@ -107,6 +109,7 @@ namespace Sleight.RabbitTrick
         public bool CoversRabbit(Vector2 point) => Dancing && Mathf.Abs(point.x - DancerX) <= 0.32f && point.y >= 1.55f && point.y <= 2.18f;
         public bool BlocksBox(Vector2 point) => Dancing && Mathf.Abs(point.x - DancerX) < 0.85f;
         public bool RabbitVisibleInLight(Vector2 point) => Illuminates(point, 0.24f) && !CoversRabbit(point);
+        public void SetBeam(float bottom, float top) { bottomRadius = bottom; topRadius = top; }
         void ApplyShader()
         {
             Shader.SetGlobalVector("_RabbitSpot", new Vector4(X, floorY, topY, bottomRadius));

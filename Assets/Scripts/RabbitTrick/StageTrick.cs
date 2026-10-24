@@ -28,8 +28,16 @@ namespace Sleight.RabbitTrick
             view = g.view;
             if (root == null)
             {
+                var previous = view.World.Find(GetType().Name);
+                if (previous != null)
+                {
+                    previous.gameObject.SetActive(false);
+                    if (Application.isPlaying) Object.Destroy(previous.gameObject);
+                    else Object.DestroyImmediate(previous.gameObject);
+                }
                 root = view.Group(GetType().Name, view.World, Vector2.zero);
                 Build();
+                foreach (Transform item in root) StageDepth.Set(item, 0.2f);
             }
         }
 
@@ -60,6 +68,19 @@ namespace Sleight.RabbitTrick
         public abstract void Draw();
         public abstract string Hint();
         public abstract void AddDemo(TrickDemo demo);   // 开场演示：按正确解法演一遍
+        public virtual void DirectAudience(float dt) => game.Audience.Follow(game.Hands.BodyPosition.x, 8f, "MAGICIAN");
+        protected virtual LooseProp[] MovableProps => System.Array.Empty<LooseProp>();
+        public virtual float AnchorDepth(TrickHand hand) => 0f;
+        public void SyncHeldProps()
+        {
+            foreach (var p in MovableProps)
+            {
+                if (!p.Held) continue;
+                p.depth = game.Hands.Depth;
+                p.floorY = p.frontFloor + p.depth * DualHandController.LaneLift;
+                p.Follow(game.Hands.Hands[p.heldBy].position);
+            }
+        }
 
         // 手：按住 E 时调用，抓到东西就把 hand.holding 设成 Custom、hand.custom 设成道具编号。
         public abstract bool TryGrab(TrickHand hand, int index);
@@ -74,19 +95,17 @@ namespace Sleight.RabbitTrick
         // 拿着的道具跟着手所在的那一层；松手时落到那一层的地面
         protected void FollowLane(LooseProp p, float frontFloor)
         {
-            if (p.Held) p.back = game.Hands.InBack;
-            p.floorY = frontFloor + (p.back ? DualHandController.LaneLift : 0f);
+            p.frontFloor = frontFloor;
+            if (p.Held) p.depth = game.Hands.Depth;
+            p.floorY = frontFloor + p.depth * DualHandController.LaneLift;
         }
 
         // 在后侧的道具整体往后画（排序往下压），会被前侧的柜子、桌子挡住
-        readonly System.Collections.Generic.Dictionary<SpriteRenderer, int> baseOrders = new System.Collections.Generic.Dictionary<SpriteRenderer, int>();
         protected void SetBehind(Transform t, bool behind)
+            => SetDepth(t, behind ? 1f : 0f);
+        protected void SetDepth(Transform t, float depth)
         {
-            foreach (var sr in t.GetComponentsInChildren<SpriteRenderer>(true))
-            {
-                if (!baseOrders.TryGetValue(sr, out int order)) baseOrders[sr] = order = sr.sortingOrder;
-                sr.sortingOrder = behind ? order - 14 : order;
-            }
+            StageDepth.Set(t, depth, 3);
         }
         protected static bool InWings(float x) => x < 0.95f || x > 9.05f;   // 两侧幕布后面，观众看不见
     }
@@ -100,7 +119,9 @@ namespace Sleight.RabbitTrick
         public float floorY;
         public int heldBy = -1;
         public bool inside;          // 在柜子里
-        public bool back;            // 在舞台后侧：观众看不见
+        public float depth;          // Continuous stage depth: 0 at the front, 1 at the back.
+        public float frontFloor = DualHandController.FrontY;
+        public bool back { get => depth > 0.5f; set => depth = value ? 1f : 0f; }
         public Vector2 grip;         // 被抓时道具相对手的位置
 
         public bool Held => heldBy >= 0;

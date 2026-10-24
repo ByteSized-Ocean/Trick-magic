@@ -1,0 +1,56 @@
+[
+  {
+    "file": "Level1_Bach_Badinerie.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Bach,_Johann_Sebastian_-_Suite_No.2_in_B_Minor_-_X._Badinerie.ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/9/97/Bach%2C_Johann_Sebastian_-_Suite_No.2_in_B_Minor_-_X._Badinerie.ogg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "European Archive",
+    "sha256": "f1458030ec0cb1c2466de6f040f58434feff52174c61ddc18db7064d2a4e8fa5"
+  },
+  {
+    "file": "Level2_Mozart_Allegro.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Mozart_K525_Serenade_in_G_Major_1_-_Allegro.ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/6/68/Mozart_K525_Serenade_in_G_Major_1_-_Allegro.ogg",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "Wolfgang Amadeus Mozart (1756–1791). The website lists the \"performer\" as the European Archive, which does not make sense (the link goes to <a rel=\"nofollow\" class=\"external free\" href=\"https://musopen.org/music/performer/european-archive/\">https://musopen.org/music/performer/european-archive/</a> )",
+    "sha256": "c0bd9e48d7b7c60ead7ebad4d147f8dbe1e1a9f8ba4a89cde97966cc8afd5394"
+  },
+  {
+    "file": "Level3_Bach_Aria.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Bach,_Goldberg_Variations,_Aria_(Musopen_version).ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/a/af/Bach%2C_Goldberg_Variations%2C_Aria_%28Musopen_version%29.ogg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "<bdi><a href=\"https://en.wikipedia.org/wiki/en:Johann_Sebastian_Bach\" class=\"extiw\" title=\"w:en:Johann Sebastian Bach\"><span title=\"German composer (1685–1750)\">Johann Sebastian Bach</span></a></bdi>",
+    "sha256": "b5f9cd0939b66b133b29e03a6d149dd23770bd53b8ccb0e306495024538422e2"
+  },
+  {
+    "file": "Level4_Vivaldi_Mandolin.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Antonio_Vivaldi,_Mandolin_Concerto_in_C_major,_RV_425.ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/6/60/Antonio_Vivaldi%2C_Mandolin_Concerto_in_C_major%2C_RV_425.ogg",
+    "license": "PDM-owner",
+    "license_url": "",
+    "artist": "The Milan Baroque Soloists",
+    "sha256": "2a2bf337fe5d6f7fd3b6283d0339b295593555466f434610557be551819877ea"
+  },
+  {
+    "file": "Level5_Bach_Preludio.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Johann_Sebastian_Bach_-_partita_no._3_in_e_major,_bwv_1006_-_1._preludio.ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/9/97/Johann_Sebastian_Bach_-_partita_no._3_in_e_major%2C_bwv_1006_-_1._preludio.ogg",
+    "license": "Public domain",
+    "license_url": "",
+    "artist": "composer Johann Sebastian Bach (1685–1750); performer credited as guitarist Gordon Rowland for Musopen (according to <a href=\"//commons.wikimedia.org/wiki/User:Graham87\" title=\"User:Graham87\">User:Graham87</a>)",
+    "sha256": "89bb66c50ad8f0b0f6a66ee528d1b5d5ec7c4430c23479d0b94cd8bfb9fc55fd"
+  },
+  {
+    "file": "TheatreApplause.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Sound_Effects_-_Applause_after_a_concert.ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/3/32/Sound_Effects_-_Applause_after_a_concert.ogg",
+    "license": "CC0",
+    "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "artist": "<a href=\"//commons.wikimedia.org/wiki/User:Amada44\" title=\"User:Amada44\">Amada44</a>",
+    "sha256": "a9bed3afd89d66c3ce13edb9f2be2a548ab87a2cc70827624905be90044f8e72"
+  }
+]

@@ -16,7 +16,8 @@ namespace Sleight.RabbitTrick
         // 后侧也够不着前侧的东西（箱盖、柜门、拉杆、放在前侧地上的道具）。
         public const float FrontY = 1.18f, BackY = 1.72f, LaneLift = BackY - FrontY;
         public bool InBack => BodyPosition.y > (FrontY + BackY) * 0.5f;
-        float laneTarget = FrontY;
+        public float Depth => Mathf.InverseLerp(FrontY, BackY, BodyPosition.y);
+        public bool AtDepth(float depth, float tolerance = 0.24f) => Mathf.Abs(Depth - depth) <= tolerance;
         public Vector2 BodyPosition { get; private set; }
         public TrickHand[] Hands { get; } = new[] { new TrickHand(), new TrickHand() };
         public TrickHand Selected => Hands[Active];
@@ -36,7 +37,7 @@ namespace Sleight.RabbitTrick
         }
         public void ResetHands()
         {
-            Active = 0; BodyPosition = new Vector2(3.85f, FrontY); laneTarget = FrontY; rabbitGrip = Vector2.down * 0.12f;
+            Active = 0; BodyPosition = new Vector2(3.85f, FrontY); rabbitGrip = Vector2.down * 0.12f;
             for (int i = 0; i < 2; i++) { Hands[i].position = BodyPosition + new Vector2(i == 0 ? -0.62f : 0.62f, 0.85f); Hands[i].holding = HandItem.None; Hands[i].custom = -1; }
         }
         public void Tick(RabbitTrickGame game, float dt)
@@ -44,16 +45,9 @@ namespace Sleight.RabbitTrick
             var kb = Keyboard.current;
             if (kb == null) return;
             if (kb.fKey.wasPressedThisFrame) Active = 1 - Active;
-            if (kb.wKey.wasPressedThisFrame)
-            {
-                if (HoldingFrontFixture(game)) game.Notify("Let go of the handle first: you cannot take it to the back of the stage.");
-                else laneTarget = BackY;
-            }
-            if (kb.sKey.wasPressedThisFrame) laneTarget = FrontY;
             float walkX = (kb.dKey.isPressed ? 1 : 0) - (kb.aKey.isPressed ? 1 : 0);
-            float dy = laneTarget - BodyPosition.y;
-            // MoveBody 把纵向位移乘了 0.55，这里先除回去，让前后换位的速度和左右走路一致
-            float stepY = Mathf.Abs(dy) < 0.001f ? 0f : Mathf.Clamp(dy / 0.55f, -walkSpeed * dt, walkSpeed * dt);
+            float walkDepth = (kb.wKey.isPressed ? 1 : 0) - (kb.sKey.isPressed ? 1 : 0);
+            float stepY = walkDepth * walkSpeed * dt * 0.65f;
             var hand = new Vector2((kb.rightArrowKey.isPressed ? 1 : 0) - (kb.leftArrowKey.isPressed ? 1 : 0), (kb.upArrowKey.isPressed ? 1 : 0) - (kb.downArrowKey.isPressed ? 1 : 0));
             MoveBody(game, new Vector2(walkX * walkSpeed * dt, stepY));
             Move(game, hand.normalized * speed * dt);
@@ -88,10 +82,12 @@ namespace Sleight.RabbitTrick
                 if (item == HandItem.Custom)
                 {
                     // 第 2、3 关：抓着固定把手时身体走不远；拿着能搬动的道具就跟着走
-                    if (game.Trick != null && game.Trick.Anchor(Hands[i], out var fixedAt) && Vector2.Distance(ShoulderAt(target, i), fixedAt) > Reach) return;
+                    if (game.Trick != null && game.Trick.Anchor(Hands[i], out var fixedAt) &&
+                        (Vector2.Distance(ShoulderAt(target, i), fixedAt) > Reach || Mathf.Abs(Mathf.InverseLerp(FrontY, BackY, target.y) - game.Trick.AnchorDepth(Hands[i])) > 0.25f)) return;
                     continue;
                 }
                 if (item == HandItem.Box || item == HandItem.Dancer) anchor += Vector2.right * delta.x;
+                if ((item == HandItem.Lid || item == HandItem.Box) && Mathf.InverseLerp(FrontY, BackY, target.y) > 0.25f) return;
                 if (item != HandItem.None && item != HandItem.Rabbit && Vector2.Distance(ShoulderAt(target, i), anchor) > Reach) return;
             }
             BodyPosition = target;
@@ -105,6 +101,7 @@ namespace Sleight.RabbitTrick
                 else hand.position = ClampHand(i, hand.position + delta);
             }
             UpdateRabbit(game);
+            game.Trick?.SyncHeldProps();
         }
         public void Move(RabbitTrickGame game, Vector2 delta)
         {
@@ -154,7 +151,7 @@ namespace Sleight.RabbitTrick
         void UpdateRabbit(RabbitTrickGame game)
         {
             foreach (var hand in Hands)
-                if (hand.holding == HandItem.Rabbit) { game.RabbitPosition = hand.position + rabbitGrip; game.RabbitBack = InBack; }
+                if (hand.holding == HandItem.Rabbit) { game.RabbitPosition = hand.position + rabbitGrip; game.RabbitDepth = Depth; }
         }
         // 按一下切换抓 / 放（编辑器里的自动验证用）；玩家实际操作走 Grab / Release。
         public void Interact(RabbitTrickGame game)
@@ -168,6 +165,7 @@ namespace Sleight.RabbitTrick
             var hand = Selected;
             if (hand.holding == HandItem.Custom)
             {
+                game.Trick?.SyncHeldProps();
                 game.Trick?.Release(hand, Active);
                 hand.holding = HandItem.None;
                 hand.custom = -1;
@@ -207,16 +205,20 @@ namespace Sleight.RabbitTrick
                 Check(HandItem.Box, game.BoxHandle, ref nearest, ref distance);
             }
             // 兔子只能在它所在的那一层抓到
-            if (!game.Rules.RabbitInside && Other.holding != HandItem.Rabbit && game.RabbitBack == InBack)
+            if ((!game.Rules.RabbitInside || game.LidAmount > 0.6f) && Other.holding != HandItem.Rabbit && AtDepth(game.Rules.RabbitInside ? 0 : game.RabbitDepth))
             {
                 // 兔子按整个身体（含耳朵）算：手碰到兔子身上任意一处就能抓，不要求够到兔子的中心。
-                float d = DistanceToRabbit(hand.position, game.RabbitPosition);
+                float d = DistanceToRabbit(hand.position, game.Rules.RabbitInside ? game.BoxOpening : game.RabbitPosition);
                 if (d <= rabbitGrabRadius && d < distance) { distance = d; nearest = HandItem.Rabbit; }
             }
             // 跳舞小人已经从第 1 关去掉，不再能抓
             if (nearest != HandItem.None && Other.holding == nearest) nearest = HandItem.None;
             hand.holding = nearest;
-            if (nearest == HandItem.Rabbit) { rabbitGrip = game.RabbitPosition - hand.position; game.Rules.TouchRabbit(); UpdateRabbit(game); }
+            if (nearest == HandItem.Rabbit)
+            {
+                if (game.Rules.RabbitInside) game.RabbitPosition = game.BoxOpening;
+                rabbitGrip = game.RabbitPosition - hand.position; game.Rules.TakeRabbit(); UpdateRabbit(game);
+            }
             else if (nearest == HandItem.Lid) hand.position = game.LidHandle;
             else if (nearest == HandItem.Box) hand.position = game.BoxHandle;
             else if (nearest == HandItem.Dancer) hand.position = game.DancerHandle;
