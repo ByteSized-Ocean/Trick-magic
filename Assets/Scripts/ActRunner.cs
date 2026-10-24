@@ -304,10 +304,12 @@ namespace Sleight
             hud.SetHeartbeat(state.suspicion);
         }
 
-        // 只在光落到目标区那一刻判定；落到另一区是玩家的暗窗开始。
+        // 只在光落到目标区、而且玩家已经在窗口内呈现过的那一刻判定。
+        // 还没呈现时光扫过目标区不算露馅（GDD §14.5 的解法就是"等光回来时再呈现"），光照常继续走。
         void OnLightSettled(Zone zone)
         {
             if (locked || Phase != ActPhase.Show || zone != data.TargetZone) return;
+            if (!state.armed && state.suspicion < 100f) return;
             TryJudge();
         }
 
@@ -332,7 +334,7 @@ namespace Sleight
         // §17.4：唯一一处写 suspicion 的地方。
         void OnPerformCompleted()
         {
-            float T = spotlight.NextArrival();
+            float T = spotlight.NextArrivalIn(data.TargetZone);
             float c = spotlight.ActTime;
             if (c >= T - presentWindow && c <= T)
             {
@@ -415,7 +417,7 @@ namespace Sleight
             if (kb.f4Key.wasPressedThisFrame && state != null)
             {
                 var states = string.Join(", ", state.propStates);
-                Debug.Log($"[ActRunner] {data.actId} t={state.time:F2} T={spotlight.NextArrival():F2} armed={state.armed} suspicion={state.suspicion:F1} props=[{states}]");
+                Debug.Log($"[ActRunner] {data.actId} t={state.time:F2} T={spotlight.NextArrivalIn(data.TargetZone):F2} armed={state.armed} suspicion={state.suspicion:F1} props=[{states}]");
             }
         }
 #endif

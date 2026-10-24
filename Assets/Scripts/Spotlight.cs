@@ -55,6 +55,17 @@ namespace Sleight
 
         public float NextArrival() => ArrivalAt(arrivals + 1);
 
+        // 第 n 次落定后停在哪个区：单数次在另一区，双数次回到起始区。
+        Zone ZoneAfter(int n) => n % 2 == 0 ? startZone : Stage.Other(startZone);
+
+        // 下一次落在 zone 的时刻。呈现窗口要对准"光回到目标区"那一次，而不是光离开时的那次落定。
+        public float NextArrivalIn(Zone zone)
+        {
+            int n = arrivals + 1;
+            if (ZoneAfter(n) != zone) n++;
+            return ArrivalAt(n);
+        }
+
         public bool IsSettled()
         {
             float p = Phase();
