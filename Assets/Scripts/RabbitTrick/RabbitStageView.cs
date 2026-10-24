@@ -390,8 +390,11 @@ namespace Sleight.RabbitTrick
         public void SetLevel(int level)
         {
             bool rabbitLevel = level == 0;
-            foreach (var t in new[] { box, rabbit, dancer, dancerBase, dancerHandle })
+            foreach (var t in new[] { box, rabbit })
                 if (t != null) t.gameObject.SetActive(rabbitLevel);
+            // 第 1 关的跳舞小人已经去掉（团队决定），三关都不显示
+            foreach (var t in new[] { dancer, dancerBase, dancerHandle })
+                if (t != null) t.gameObject.SetActive(false);
             var rest = world != null ? world.Find("RabbitRest") : null;
             if (rest != null) rest.gameObject.SetActive(rabbitLevel);
             GloveAlpha[0] = GloveAlpha[1] = 1f;

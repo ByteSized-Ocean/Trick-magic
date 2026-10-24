@@ -86,11 +86,14 @@ namespace Sleight.RabbitTrick
             StartDemo();
         }
 
-        public void StartDemo()
+        public void StartDemo() => StartDemo(false);
+
+        // looping = true：演示演完一遍又从头开始，跳过锁不再重新计时
+        void StartDemo(bool looping)
         {
             ResetTrick();
             InDemo = true;
-            DemoAge = 0f;
+            if (!looping) DemoAge = 0f;
             Audience.Scripted = true;
             demo = new TrickDemo(this);
             if (Trick != null) Trick.AddDemo(demo);
@@ -138,13 +141,21 @@ namespace Sleight.RabbitTrick
                 Audience.Tick(dt);
                 if (Trick != null) Trick.Tick(dt);
                 else { TickFalling(dt); Evaluate(dt); }
-                if (demo.Done) EndDemo();
+                if (demo.Done) FinishDemoRound();
             }
             else
             {
                 ResultAge += dt;
-                if (ResultAge > 1.6f) EndDemo();
+                if (ResultAge > 1.6f) FinishDemoRound();
             }
+        }
+
+        // 演示演完一遍：玩家没按键跳过就从头再放（编辑器验证时直接结束）
+        void FinishDemoRound()
+        {
+            if (SimulateInEditor) { EndDemo(); return; }
+            LastDemoSucceeded = IsFinished && !IsFailed;
+            StartDemo(true);
         }
 
         public void ResetTrick()
@@ -393,10 +404,10 @@ namespace Sleight.RabbitTrick
             {
                 if (Rules.RabbitInside) return chinese ? "兔子已经在里面了：趁暗抓住箱盖，向下拉到完全关闭" : "RABBIT INSIDE: pull the lid DOWN completely while it is dark.";
                 if (Hands.Selected.holding == HandItem.Rabbit)
-                    return chinese ? "保持兔子在暗处，或藏在移动小人的裙摆后；到箱口松开 E 放入。按住 E 时按 F 切手，可以交接" : "Carry it in the DARK or behind the moving cape. Let go of E at the box. Hold E and press F to pass it.";
-                return chinese ? "向上拉小人的侧面拉环吸引目光；也能移动小人，让兔子躲在裙摆后通过灯光" : "Wind the decoy. Its moving cape can cover a rabbit passing through the spotlight.";
+                    return chinese ? "保持兔子在暗处或舞台后侧；到箱口松开 E 放入。按住 E 时按 F 切手，可以交接" : "Keep it in the DARK or at the BACK of the stage. Let go of E at the box. Hold E and press F to pass it.";
+                return chinese ? "等追光移开，或按 W 走到舞台后侧，再把兔子运到箱子边" : "Wait for the light to move away, or carry the rabbit along the BACK of the stage (W).";
             }
-            return chinese ? "把小人移开：箱口必须在灯下且无遮挡，拉开箱盖给观众看兔子" : "Move the decoy aside. Reveal only when the box is LIT and UNOBSTRUCTED.";
+            return chinese ? "等追光照到箱子，再拉开箱盖给观众看兔子" : "Wait for the light on the box, then open the lid to reveal the rabbit.";
         }
 
         // 掌声：几百下短促的噪声"啪"，随机分布在几秒里，开头密、结尾稀

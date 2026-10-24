@@ -203,7 +203,7 @@ namespace Sleight.RabbitTrick.EditorTools
             File.WriteAllText(ReportPath,
                 "PASS: ordered three-step trick; continuous empty-box demonstration; dark-only insertion; " +
                 "carried and inserted rabbit exposure; closed-box safety; final reveal; reset; independent hands; " +
-                "left-to-right handoff; physical lid dragging; physical box dragging; dancer activation and light lock; " +
+                "left-to-right handoff; physical lid dragging; physical box dragging; " +
                 "full trick via body walking and short articulated arms; moving decoy occlusion; lit-only unobstructed presentation; shader and scene references.\n");
             Debug.Log("[RabbitTrick] ALL VALIDATION PASSED. " + ReportPath);
             game.ResetTrick();
@@ -271,13 +271,9 @@ namespace Sleight.RabbitTrick.EditorTools
             game.Evaluate(0.9f);
             Expect(game.Rules.Step == TrickStep.HideRabbit, "lit empty-box display advances");
 
-            WalkTo(game, 8.5f);
-            Aim(game, game.DancerHandle);
-            game.Hands.Interact(game);
-            game.Hands.Move(game, Vector2.up * 0.3f);
-            Expect(game.Audience.Dancing, "hand pull starts dancing");
-            game.Audience.Tick(1f);
-            Expect(Mathf.Abs(game.Audience.X - game.Audience.DancerX) < 0.1f, "spotlight follows moving decoy");
+            // 跳舞小人已经去掉：直接让追光停到右边，箱子和兔子都在暗处
+            game.Audience.Scripted = true;
+            game.Audience.ResetLight(8.5f);
             WalkTo(game, 1.55f);
             game.Hands.SelectHand(0);
             Aim(game, game.RabbitPosition);
@@ -311,6 +307,7 @@ namespace Sleight.RabbitTrick.EditorTools
             game.Hands.Move(game, Vector2.up * 0.75f);
             game.Evaluate(0.02f);
             Expect(game.Rules.Finished && !game.Rules.Failed, "whole trick succeeds with fixed-length arms");
+            game.Audience.Scripted = false;
 
             game.ResetTrick();
             for (int i = 0; i < 2; i++)

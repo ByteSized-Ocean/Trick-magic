@@ -213,7 +213,7 @@ namespace Sleight.RabbitTrick
                 float d = DistanceToRabbit(hand.position, game.RabbitPosition);
                 if (d <= rabbitGrabRadius && d < distance) { distance = d; nearest = HandItem.Rabbit; }
             }
-            if (!InBack) Check(HandItem.Dancer, game.DancerHandle, ref nearest, ref distance);
+            // 跳舞小人已经从第 1 关去掉，不再能抓
             if (nearest != HandItem.None && Other.holding == nearest) nearest = HandItem.None;
             hand.holding = nearest;
             if (nearest == HandItem.Rabbit) { rabbitGrip = game.RabbitPosition - hand.position; game.Rules.TouchRabbit(); UpdateRabbit(game); }
