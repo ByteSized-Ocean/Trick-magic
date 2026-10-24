@@ -235,77 +235,143 @@ MAGICIAN = {
 }
 
 
-# ---------------------------------------------------------------- 道具（§19.2，均贴地面线）
+# ---------------------------------------------------------------- 道具（均贴地面线；尺寸比 §19.2 放大，跟参考图的比例走）
 
-def plank_lines(c, x0, x1, ys):
-    wood = c.detail(WARM_BROWN)
-    for y in ys:
-        wood.line([(x0, y), (x1, y)], 1)
+# 道具改成平涂彩色（参考图：蓝色金边魔术箱、紫布下的兔子、金框落地镜）。人物仍是剪影。
+BOX_BLUE = (78, 110, 138)
+BOX_SIDE = (60, 88, 113)
+BOX_INSIDE = (30, 36, 51)
+TRIM = (232, 163, 60)
+CREAM = (243, 227, 181)
+VELVET_PURPLE = (90, 58, 102)
+VELVET_DARK = (71, 48, 79)
+CUSHION = (75, 51, 84)
+FRINGE = (216, 162, 58)
+RABBIT = (184, 184, 200)
+RABBIT_BELLY = (201, 169, 138)
+RABBIT_EAR = (176, 112, 122)
+COLLAR = (138, 36, 51)
+GOLD = (200, 150, 46)
+GLASS = (110, 140, 168)
+GLASS_HI = (214, 228, 240)
+WOOD = (107, 74, 53)
+WOOD_DARK = (86, 58, 41)
+
+
+class Paint:
+    """平涂彩色画布：y 轴朝下、按目标像素坐标，内部 S 倍绘制。"""
+
+    def __init__(self, w, h):
+        self.w, self.h = w, h
+        self.img = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
+        self.d = ImageDraw.Draw(self.img)
+
+    def _p(self, pts):
+        return [(x * S, y * S) for x, y in pts]
+
+    def poly(self, pts, color):
+        self.d.polygon(self._p(pts), fill=color + (255,))
+
+    def rect(self, box, color):
+        x0, y0, x1, y1 = box
+        self.d.rectangle((x0 * S, y0 * S, x1 * S - 1, y1 * S - 1), fill=color + (255,))
+
+    def ellipse(self, box, color):
+        x0, y0, x1, y1 = box
+        self.d.ellipse((x0 * S, y0 * S, x1 * S, y1 * S), fill=color + (255,))
+
+    def line(self, pts, color, width):
+        self.d.line(self._p(pts), fill=color + (255,), width=max(1, int(width * S)))
+
+    def render(self, seed=0, grain=4):
+        return add_grain(self.img.resize((self.w, self.h), Image.LANCZOS), grain, seed)
+
+
+def rabbit(c, x, y):
+    """坐着的兔子，脚底在 (x, y)。"""
+    c.ellipse((x - 11, y - 22, x + 11, y), RABBIT)               # 身子
+    c.ellipse((x - 6, y - 16, x + 6, y - 2), RABBIT_BELLY)       # 肚子
+    c.ellipse((x - 16, y - 9, x - 7, y), RABBIT)                 # 尾巴
+    c.ellipse((x - 8, y - 36, x + 9, y - 19), RABBIT)            # 头
+    c.rect((x - 7, y - 21, x + 8, y - 18), COLLAR)               # 项圈
+    for ex in (x - 6, x + 3):                                    # 两只长耳朵
+        c.rect((ex, y - 54, ex + 5, y - 33), RABBIT)
+        c.rect((ex + 1, y - 51, ex + 4, y - 36), RABBIT_EAR)
+    c.rect((x + 3, y - 30, x + 5, y - 28), NEAR_BLACK)           # 眼睛
+    c.rect((x + 8, y - 26, x + 10, y - 24), RABBIT_EAR)          # 鼻子
+
+
+def box_body(c, top):
+    c.rect((4, top, 68, 64), TRIM)                               # 金边外框
+    c.rect((7, top + 3, 65, 61), BOX_BLUE)
+    c.rect((7, top + 3, 12, 61), BOX_SIDE)                       # 侧面阴影
+    cx, cy = 37, (top + 64) // 2 + 2                             # 菱形徽记
+    c.poly([(cx, cy - 9), (cx + 9, cy), (cx, cy + 9), (cx - 9, cy)], TRIM)
+    c.rect((cx - 6, cy - 2, cx + 6, cy + 2), CREAM)
 
 
 def box_open():
-    c = Canvas(48, 56)
-    c.rect((3, 20, 45, 56))                       # 箱身（矮）
-    c.poly([(3, 20), (6, 2), (12, 2), (9, 20)])   # 竖起来的箱盖
-    plank_lines(c, 5, 43, [30, 40, 50])
-    inside = c.detail(AGED_PAPER)                 # 里面露出的东西：一角旧手帕
-    inside.poly([(18, 21), (24, 11), (29, 15), (33, 21)])
+    c = Paint(72, 64)
+    box_body(c, 22)
+    c.rect((7, 22, 65, 27), BOX_INSIDE)                          # 敞开的箱口
+    c.poly([(4, 22), (14, 2), (19, 4), (10, 22)], TRIM)          # 掀起来的箱盖
+    c.poly([(7, 22), (15, 5), (17, 6), (10, 22)], BOX_SIDE)
+    for ex in (30, 38):                                          # 里面露出的兔耳朵
+        c.rect((ex, 6, ex + 5, 24), RABBIT)
+        c.rect((ex + 1, 9, ex + 4, 22), RABBIT_EAR)
     return c.render(seed=11)
 
 
 def box_sealed():
-    c = Canvas(48, 44)
-    c.rect((3, 8, 45, 44))
-    c.rect((1, 5, 47, 10))                        # 合上的盖沿
-    plank_lines(c, 5, 43, [20, 30, 39])
-    latch = c.detail(AGED_PAPER)
-    latch.rect((22, 9, 26, 14))
+    c = Paint(72, 64)
+    box_body(c, 16)
+    c.rect((2, 11, 70, 17), TRIM)                                # 合上的箱盖
+    c.rect((4, 9, 68, 12), BOX_SIDE)
+    c.ellipse((29, 4, 45, 12), CREAM)                            # 把手
     return c.render(seed=12)
 
 
 def cloth_off():
-    c = Canvas(72, 40)
-    c.ellipse((18, 8, 50, 40))                    # 底下那一团（鸟笼似的）
-    c.rect((18, 24, 50, 40))
-    bars = c.detail(WARM_BROWN)
-    for x in (24, 30, 36, 42):
-        bars.line([(x, 12), (x, 39)], 1)
-    c.poly([(48, 40), (54, 30), (62, 33), (70, 40)])  # 掀到一边的布
+    c = Paint(80, 64)
+    c.ellipse((8, 52, 56, 64), CUSHION)                          # 紫色坐垫
+    rabbit(c, 32, 57)
+    c.poly([(54, 64), (62, 50), (72, 52), (80, 64)], VELVET_PURPLE)   # 掀到一边的布
+    c.line([(60, 63), (66, 53)], VELVET_DARK, 1.5)
+    for x in range(56, 80, 5):
+        c.rect((x, 62, x + 2, 64), FRINGE)
     return c.render(seed=13)
 
 
 def cloth_on():
-    c = Canvas(72, 56)
-    c.ellipse((6, 4, 66, 64))                     # 圆顶蓬
-    c.rect((6, 34, 66, 56))
-    c.poly([(4, 56), (8, 46), (14, 56)])
-    c.poly([(58, 56), (64, 46), (68, 56)])
-    folds = c.detail(WARM_BROWN)
-    for x0, x1 in ((22, 16), (36, 34), (50, 56)):
-        folds.line([(x0, 12), (x1, 54)], 1)
-    tassel = c.detail(CRIMSON)
-    for x in range(10, 64, 9):
-        tassel.line([(x, 54), (x, 56)], 2)
+    c = Paint(80, 64)
+    c.ellipse((6, 6, 74, 76), VELVET_PURPLE)                     # 圆顶蓬
+    c.rect((6, 40, 74, 62), VELVET_PURPLE)
+    for x0, x1 in ((22, 16), (40, 40), (58, 64)):                # 褶皱
+        c.line([(x0, 12), (x1, 60)], VELVET_DARK, 2)
+    c.ellipse((34, 0, 46, 10), FRINGE)                           # 顶上的小球
+    for x in range(8, 74, 6):                                    # 金色流苏
+        c.rect((x, 59, x + 3, 64), FRINGE)
     return c.render(seed=14)
 
 
 def mirror(flipped):
-    c = Canvas(40, 112)
-    c.rect((6, 4, 34, 92))                        # 镜框
-    c.ellipse((4, 0, 36, 12))
-    c.limb([(20, 92), (20, 104)], 4)              # 立柱
-    c.poly([(6, 112), (20, 102), (34, 112)])      # 三脚底座
+    c = Paint(48, 128)
+    c.ellipse((4, 0, 44, 20), GOLD)                              # 圆拱顶的金框
+    c.rect((4, 10, 44, 104), GOLD)
     if flipped:
-        # 镜面朝外：照不出任何人，只有一道旧纸色的亮边和一抹斜光
-        edge = c.detail(AGED_PAPER)
-        edge.rect((29, 10, 31, 86))
-        sheen = c.detail(WARM_BROWN)
-        sheen.line([(11, 60), (25, 24)], 2)
+        c.ellipse((8, 4, 40, 22), GLASS)                         # 镜面朝外：照不出人
+        c.rect((8, 13, 40, 100), GLASS)
+        c.line([(14, 70), (30, 24)], GLASS_HI, 3)
+        c.line([(22, 82), (34, 50)], GLASS_HI, 1.5)
     else:
-        back = c.detail(WARM_BROWN)               # 背板的木条
-        back.line([(10, 20), (30, 20)], 1)
-        back.line([(10, 76), (30, 76)], 1)
-        back.line([(20, 20), (20, 76)], 1)
+        c.ellipse((8, 4, 40, 22), WOOD)                          # 镜面朝里：看到木背板
+        c.rect((8, 13, 40, 100), WOOD)
+        for y in (30, 56, 82):
+            c.rect((8, y, 40, y + 2), WOOD_DARK)
+        c.rect((23, 13, 25, 100), WOOD_DARK)
+    c.rect((21, 104, 27, 118), WOOD_DARK)                        # 立柱
+    c.poly([(6, 128), (24, 116), (42, 128)], WOOD_DARK)          # 底座
+    c.rect((6, 124, 42, 128), GOLD)
     return c.render(seed=15 + flipped)
 
 

@@ -34,7 +34,17 @@ namespace Sleight.EditorTools
         static readonly Color Crimson = Hex(0x5A1418);
         static readonly Color AgedPaper = Hex(0xD9CBB0);
         static readonly Color SpotYellow = Hex(0xFFD21E);
-        static readonly Color Ambient = Hex(0x4A3E36);   // 暗区要暗，追光才显眼；偏暖
+        static readonly Color Ambient = Hex(0x8A8096);   // 参考图整体偏亮，平涂的颜色要读得出来
+
+        // 舞台配色（跟参考图）：深蓝背板、木地板、深红褶皱大幕、金色边条。
+        static readonly Color Backdrop = Hex(0x2A2740);
+        static readonly Color BackdropLine = Hex(0x3D3958);
+        static readonly Color Plank = Hex(0x7A5238);
+        static readonly Color PlankLine = Hex(0x4A3020);
+        static readonly Color Gold = Hex(0xC8962E);
+        static readonly Color CurtainLight = Hex(0x5E1A32);
+        static readonly Color CurtainDark = Hex(0x3E1022);
+        static readonly Color ConeColor = new Color(0.95f, 0.70f, 0.36f, 0.35f);   // 光柱偏暖橙
         static readonly Color ClearColor = Hex(0x0E0B0A);
 
         static Sprite centerSprite;
@@ -135,7 +145,7 @@ namespace Sleight.EditorTools
             mat.SetOverrideTag("RenderType", "Transparent");
             mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             mat.renderQueue = (int)RenderQueue.Transparent;
-            mat.SetColor("_BaseColor", new Color(1f, 0.824f, 0.118f, 0.35f));
+            mat.SetColor("_BaseColor", ConeColor);
             EditorUtility.SetDirty(mat);
             return mat;
         }
@@ -470,19 +480,30 @@ namespace Sleight.EditorTools
             RenderSettings.ambientLight = Ambient;
             RenderSettings.skybox = null;
 
-            // 灰盒 3D 舞台。玩家和道具站在 z = 0，地板顶面 y = 1.0（§4.2 地面线）。
+            // 3D 舞台（配色跟参考图）。玩家和道具站在 z = 0，地板顶面 y = 1.0（§4.2 地面线）。
             var stage = new GameObject("Stage").transform;
-            Box("Floor", stage, new Vector3(5f, 0.5f, 1.5f), new Vector3(13f, 1f, 5f), LitMaterial("M_Floor", Floor));
-            Box("FootLine", stage, new Vector3(5f, 0.995f, -0.99f), new Vector3(13f, 0.02f, 0.02f), LitMaterial("M_FootLine", FootLine));
-            Box("Divider", stage, new Vector3(5f, 1.001f, 1.5f), new Vector3(0.03f, 0.002f, 5f), LitMaterial("M_Divider", Divider));
-            Box("Backdrop", stage, new Vector3(5f, 3.6f, 4.0f), new Vector3(13f, 6f, 0.2f), LitMaterial("M_Wall", Wall));
-            // 深红丝绒：台口两侧的大幕、后面一层侧幕、顶上的檐幕。
-            var velvet = LitMaterial("M_Velvet", Crimson);
-            Box("Drape_L", stage, new Vector3(-0.05f, 3.0f, -0.8f), new Vector3(0.8f, 4.8f, 0.1f), velvet);
-            Box("Drape_R", stage, new Vector3(10.05f, 3.0f, -0.8f), new Vector3(0.8f, 4.8f, 0.1f), velvet);
-            Box("Wing_L", stage, new Vector3(0.1f, 3.0f, 2.2f), new Vector3(0.9f, 4.6f, 0.1f), velvet);
-            Box("Wing_R", stage, new Vector3(9.9f, 3.0f, 2.2f), new Vector3(0.9f, 4.6f, 0.1f), velvet);
-            Box("Valance", stage, new Vector3(5f, 5.15f, -0.6f), new Vector3(13f, 0.9f, 0.1f), velvet);   // 檐幕，压住布景天顶以上
+            var plankLine = LitMaterial("M_PlankLine", PlankLine);
+            var gold = LitMaterial("M_Gold", Gold);
+            Box("Floor", stage, new Vector3(5f, 0.5f, 1.5f), new Vector3(13f, 1f, 5f), LitMaterial("M_Floor", Plank));
+            for (float x = -1.2f; x <= 11.2f; x += 0.58f)   // 木板缝，顺着进深方向
+                Box("PlankSeam", stage, new Vector3(x, 1.001f, 1.5f), new Vector3(0.025f, 0.002f, 5f), plankLine);
+            Box("StageLip", stage, new Vector3(5f, 0.93f, -1.0f), new Vector3(13f, 0.14f, 0.04f), gold);   // 台口金边
+            Box("Divider", stage, new Vector3(5f, 1.002f, 1.5f), new Vector3(0.03f, 0.002f, 5f), LitMaterial("M_Divider", Divider));
+
+            Box("Backdrop", stage, new Vector3(5f, 3.6f, 4.0f), new Vector3(13f, 6f, 0.2f), LitMaterial("M_Wall", Backdrop));
+            var backdropLine = LitMaterial("M_BackdropLine", BackdropLine);
+            for (float x = -0.9f; x <= 10.9f; x += 0.9f)    // 背板的竖条
+                Box("Panel", stage, new Vector3(x, 3.6f, 3.89f), new Vector3(0.03f, 6f, 0.01f), backdropLine);
+
+            // 深红丝绒：台口两侧的大幕（明暗竖条表现褶皱）、后面一层侧幕、顶上的檐幕和金色横杆。
+            var velvet = LitMaterial("M_Velvet", CurtainLight);
+            var velvetDark = LitMaterial("M_VelvetDark", CurtainDark);
+            Drape("Drape_L", stage, -0.45f, 0.35f, -0.8f, velvet, velvetDark);
+            Drape("Drape_R", stage, 9.65f, 10.45f, -0.8f, velvet, velvetDark);
+            Drape("Wing_L", stage, -0.35f, 0.55f, 2.2f, velvet, velvetDark);
+            Drape("Wing_R", stage, 9.45f, 10.35f, 2.2f, velvet, velvetDark);
+            Box("Valance", stage, new Vector3(5f, 5.2f, -0.6f), new Vector3(13f, 0.8f, 0.1f), LitMaterial("M_Valance", Hex(0x45142A)));
+            Box("ValanceRail", stage, new Vector3(5f, 4.78f, -0.66f), new Vector3(13f, 0.05f, 0.04f), gold);
 
             // 追光：从正上方往下打的圆锥。父物体只沿 x 平移（Spotlight.cs），
             // 子物体一盏朝下的 Spot Light 负责照亮，一个半透明截头圆锥负责画出光柱。
@@ -496,7 +517,7 @@ namespace Sleight.EditorTools
             beamGo.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             var beam = beamGo.AddComponent<Light>();
             beam.type = LightType.Spot;
-            beam.color = SpotYellow;
+            beam.color = Color.Lerp(SpotYellow, new Color(1f, 0.62f, 0.3f), 0.35f);   // 暖一点，接近参考图
             beam.intensity = 220f;
             beam.range = 20f;
             beam.spotAngle = 30f;       // 地面光圈半径 ≈ 2.5，和光柱底面一致
@@ -510,7 +531,7 @@ namespace Sleight.EditorTools
             coneRenderer.shadowCastingMode = ShadowCastingMode.Off;
             coneRenderer.receiveShadows = false;
             coneRenderer.sortingLayerName = "BG";   // 画在剪影后面，剪影保持纯黑
-            coneGo.AddComponent<LightCone>();
+            coneGo.AddComponent<LightCone>().color = ConeColor;
             BuildDust(spotGo.transform);
 
             var spotlight = spotGo.AddComponent<Spotlight>();
@@ -671,7 +692,7 @@ namespace Sleight.EditorTools
             vignette.intensity.Override(0.3f);
             vignette.smoothness.Override(0.45f);
             var color = profile.Add<ColorAdjustments>(true);
-            color.saturation.Override(-15f);
+            color.saturation.Override(-5f);
             color.colorFilter.Override(new Color(1f, 0.95f, 0.88f));
             var bloom = profile.Add<Bloom>(true);
             bloom.intensity.Override(0.35f);
@@ -777,6 +798,20 @@ namespace Sleight.EditorTools
             img.color = color;
             img.raycastTarget = false;
             return img;
+        }
+
+        // 一片幕布：明暗相间的竖条，看起来是褶皱。
+        static void Drape(string name, Transform parent, float x0, float x1, float z, Material light, Material dark)
+        {
+            var root = new GameObject(name).transform;
+            root.SetParent(parent, false);
+            const float fold = 0.16f;
+            int i = 0;
+            for (float x = x0; x < x1 - 0.001f; x += fold, i++)
+            {
+                float w = Mathf.Min(fold, x1 - x);
+                Box("Fold", root, new Vector3(x + w / 2f, 3.0f, z + (i % 2 == 0 ? 0f : 0.03f)), new Vector3(w, 4.8f, 0.08f), i % 2 == 0 ? light : dark);
+            }
         }
 
         static GameObject Box(string name, Transform parent, Vector3 center, Vector3 size, Material mat)
