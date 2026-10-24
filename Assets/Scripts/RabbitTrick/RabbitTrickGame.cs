@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -16,9 +17,10 @@ namespace Sleight.RabbitTrick
         // 三关，难度逐级递增。第 1 关是原来的空箱变兔子（Trick == null），第 2、3 关各是一个 StageTrick。
         public const int LevelCount = 3;
         readonly StageTrick[] tricks = { null, new TrunkTrick(), new LevitationTrick() };
-        static readonly float[] PatienceByLevel = { 50f, 90f, 40f };
-        // 追光偏向舞台左边的程度：去左边的机会、在左边停多久（最短 / 最长秒）。第 2 关柜子在中间，要给足暗处换人的时间
-        static readonly Vector3[] LeftBiasByLevel = { Vector3.zero, new Vector3(0.75f, 7f, 11f), Vector3.zero };
+        static readonly float[] PatienceByLevel = { 50f, 70f, 90f };
+        // 追光偏向舞台某一段：(机会, 区间左, 区间右, 最短停留, 最长停留)。
+        // 第 2 关偏左，给足暗处换人的时间；第 3 关偏中间，悬浮桌在 x 5.2，让她多被照到
+        static readonly float[][] BiasByLevel = { new float[5], new[] { 0.75f, 1.4f, 3.0f, 7f, 11f }, new[] { 0.7f, 4.6f, 5.8f, 4.5f, 7f } };
         // 追光：停留最短 / 最长、移动最短 / 最长（秒），逐关更快
         static readonly Vector4[] PaceByLevel = { new Vector4(2.8f, 4.6f, 1.1f, 1.7f), new Vector4(2.2f, 3.6f, 0.9f, 1.4f), new Vector4(1.8f, 3.0f, 0.7f, 1.1f) };
         public StageTrick Trick => tricks[Mathf.Clamp(Level, 0, tricks.Length - 1)];
@@ -43,6 +45,9 @@ namespace Sleight.RabbitTrick
         // 每关开始前的演示（TrickDemo）：任意键跳过，演完自动开始
         public bool InDemo { get; private set; }
         public string DemoCaption => demo != null ? demo.Caption : "";
+        public float DemoAge { get; private set; }
+        public const float DemoSkipLock = 3f;   // 演示开始后 3 秒内按键不跳过，免得还没看清就跳过了
+        public bool CanSkipDemo => InDemo && DemoAge >= DemoSkipLock;
         public bool LastDemoSucceeded { get; private set; }   // 编辑器验证用
         public string LastDemoReport { get; private set; } = "";
         public static bool SimulateInEditor;                  // 编辑器里快进跑演示时为 true
@@ -68,13 +73,14 @@ namespace Sleight.RabbitTrick
         string notification;
         float notificationUntil;
         bool resultSoundPlayed;
-        AudioClip bell, reveal;
+        AudioClip bell, reveal, applause;
 
         void Start()
         {
             view.UseRuntimeFont();
             bell = Tone("Caught bell", 660f, 0.32f, false);
             reveal = Tone("Reveal", 440f, 0.45f, true);
+            applause = Applause(3.2f);
             StartDemo();
         }
 
@@ -82,6 +88,7 @@ namespace Sleight.RabbitTrick
         {
             ResetTrick();
             InDemo = true;
+            DemoAge = 0f;
             Audience.Scripted = true;
             demo = new TrickDemo(this);
             if (Trick != null) Trick.AddDemo(demo);
@@ -113,8 +120,16 @@ namespace Sleight.RabbitTrick
         }
 
         // 演示里的一帧：脚本代替键盘驱动双手，其余判定照常跑；不扣耐心、不落幕。
+        // 左上角的"重播演示"按钮：重新开始本关并播一遍演示
+        public void ReplayDemo()
+        {
+            if (InDemo || ChangingLevel) return;
+            StartDemo();
+        }
+
         void TickDemo(float dt)
         {
+            DemoAge += dt;
             if (!IsFailed && !IsFinished)
             {
                 demo.Tick(dt);
@@ -147,8 +162,8 @@ namespace Sleight.RabbitTrick
             patienceSeconds = PatienceByLevel[Mathf.Clamp(Level, 0, PatienceByLevel.Length - 1)];
             var pace = PaceByLevel[Mathf.Clamp(Level, 0, PaceByLevel.Length - 1)];
             Audience.SetPace(pace.x, pace.y, pace.z, pace.w);
-            var bias = LeftBiasByLevel[Mathf.Clamp(Level, 0, LeftBiasByLevel.Length - 1)];
-            Audience.SetLeftBias(bias.x, bias.y, bias.z);
+            var bias = BiasByLevel[Mathf.Clamp(Level, 0, BiasByLevel.Length - 1)];
+            Audience.SetBias(bias[0], bias[1], bias[2], bias[3], bias[4]);
             Hands.ResetHands();
             // 第 2、3 关的道具在运行时才搭；编辑器里重建场景时不搭，免得存进场景、运行时又搭一份
             if (Application.isPlaying || SimulateInEditor)
@@ -171,12 +186,13 @@ namespace Sleight.RabbitTrick
             if (InDemo)
             {
                 // 任意键跳过演示
-                if (kb != null && kb.anyKey.wasPressedThisFrame) EndDemo();
+                if (CanSkipDemo && kb != null && kb.anyKey.wasPressedThisFrame) EndDemo();
                 else TickDemo(Mathf.Min(Time.deltaTime, 0.05f));
                 view.Draw(this);
                 return;
             }
-            if (kb != null && kb.rKey.wasPressedThisFrame && !ChangingLevel) ResetTrick();
+            // 过关之后不能按 R 重来，只等落幕进下一关
+            if (kb != null && kb.rKey.wasPressedThisFrame && !ChangingLevel && !IsFinished) ResetTrick();
 #if UNITY_EDITOR
             // 调试：F9 直接走一遍落幕 → 拉开，不用先把魔术演完
             if (kb != null && kb.f9Key.wasPressedThisFrame && !ChangingLevel && Curtains != null) StartCoroutine(NextLevel());
@@ -214,6 +230,7 @@ namespace Sleight.RabbitTrick
             {
                 resultSoundPlayed = true;
                 if (audioSource != null) audioSource.PlayOneShot(IsFailed ? bell : reveal, 0.45f);
+                if (audioSource != null && IsFinished) audioSource.PlayOneShot(applause, 0.6f);   // 观众鼓掌欢呼
             }
             view.Draw(this);
         }
@@ -375,6 +392,32 @@ namespace Sleight.RabbitTrick
             return chinese ? "把小人移开：箱口必须在灯下且无遮挡，拉开箱盖给观众看兔子" : "Move the decoy aside. Reveal only when the box is LIT and UNOBSTRUCTED.";
         }
 
+        // 掌声：几百下短促的噪声"啪"，随机分布在几秒里，开头密、结尾稀
+        static AudioClip Applause(float seconds)
+        {
+            const int rate = 22050;
+            var samples = new float[Mathf.CeilToInt(rate * seconds)];
+            var rng = new System.Random(11);
+            int claps = 420;
+            for (int c = 0; c < claps; c++)
+            {
+                float t = (float)Math.Pow(rng.NextDouble(), 1.6) * (seconds - 0.05f);
+                int start = (int)(t * rate);
+                float amp = 0.08f + 0.12f * (float)rng.NextDouble();
+                int len = (int)(rate * (0.008f + 0.01f * (float)rng.NextDouble()));
+                for (int i = 0; i < len && start + i < samples.Length; i++)
+                    samples[start + i] += ((float)rng.NextDouble() * 2f - 1f) * amp * Mathf.Exp(-i / (len * 0.35f));
+            }
+            for (int i = 0; i < samples.Length; i++)
+            {
+                float fade = Mathf.Clamp01((samples.Length - i) / (rate * 0.6f));
+                samples[i] = Mathf.Clamp(samples[i], -0.9f, 0.9f) * fade;
+            }
+            var clip = AudioClip.Create("Applause", samples.Length, 1, rate, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
         static AudioClip Tone(string name, float frequency, float seconds, bool rising)
         {
             const int rate = 22050;
@@ -395,6 +438,7 @@ namespace Sleight.RabbitTrick
         {
             if (bell != null) Destroy(bell);
             if (reveal != null) Destroy(reveal);
+            if (applause != null) Destroy(applause);
         }
     }
 }

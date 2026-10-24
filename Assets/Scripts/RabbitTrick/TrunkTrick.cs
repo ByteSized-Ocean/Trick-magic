@@ -29,6 +29,13 @@ namespace Sleight.RabbitTrick
 
         Transform cabinet, curtainPivot, curtainHandle, hatchPivot, assistantT, dummyT;
 
+        // 芭蕾女郎：完成第一步后从舞台左侧慢慢踮脚走上来，追光跟着她跳 20 秒，然后她慢慢退场，灯光再照原样走
+        const float BalletEnter = 5f, BalletHold = 20f, BalletExit = 5f;
+        const float BalletOffX = -0.8f, BalletStageX = 2.4f;
+        float balletTime = -1f;     // -1 = 还没出场
+        Transform ballerina, ballerinaSpin;
+        public bool BalletOnStage => balletTime >= 0f && balletTime < BalletEnter + BalletHold + BalletExit;
+
         Vector2 CurtainHandle => new Vector2(Mathf.Lerp(CurtainClosedEdge, CurtainOpenEdge, open), CurtainHandleY);
         Vector2 HatchHandleAt(float amount)
         {
@@ -46,6 +53,7 @@ namespace Sleight.RabbitTrick
             hatch = hatchVel = 0f;
             Place(assistant, new Vector2(2.3f, Floor));
             Place(dummy, new Vector2(9.4f, Floor));   // 藏在右侧幕后
+            balletTime = -1f;
         }
 
         static void Place(LooseProp p, Vector2 at)
@@ -157,6 +165,9 @@ namespace Sleight.RabbitTrick
 
         public override void Tick(float dt)
         {
+            // 第一步完成之前，追光一直定在柜子上不动；之后交给芭蕾女郎和原来的走法
+            if (Step == 0) game.Audience.Follow(CabX);
+            TickBallet(dt);
             bool hatchHeld = HeldBy(HatchId) >= 0;
             if (!hatchHeld && hatch > 0f)
             {
@@ -184,7 +195,12 @@ namespace Sleight.RabbitTrick
             {
                 if (assistant.inside && justClosed)
                 {
-                    if (cabLit) { Step = 1; game.Notify("She is in! Wait for the dark, then swap her through the side door."); }
+                    if (cabLit)
+                    {
+                        Step = 1;
+                        balletTime = 0f;   // 芭蕾女郎上场，把观众的目光引到左边
+                        game.Notify("She is in! A ballerina takes the spotlight: swap her through the side door while it is dark.");
+                    }
                     else game.Notify("Nobody saw her go in. Open the curtain and close it again IN THE LIGHT.");
                 }
                 return;
@@ -203,6 +219,27 @@ namespace Sleight.RabbitTrick
             }
 
             if (Step == 2 && open >= 0.9f && cabLit && dummy.inside) Step = 3;
+        }
+
+        void TickBallet(float dt)
+        {
+            if (balletTime < 0f) return;
+            float total = BalletEnter + BalletHold + BalletExit;
+            if (balletTime >= total) return;
+            balletTime += dt;
+            if (balletTime >= total) { game.Audience.StopFollowing(); return; }
+            game.Audience.Follow(BalletX);
+        }
+
+        float BalletX
+        {
+            get
+            {
+                if (balletTime < BalletEnter) return Mathf.Lerp(BalletOffX, BalletStageX, Mathf.SmoothStep(0, 1, balletTime / BalletEnter));
+                float t = balletTime - BalletEnter;
+                if (t < BalletHold) return BalletStageX + Mathf.Sin(t * 0.9f) * 0.35f;   // 原地小范围来回旋转
+                return Mathf.Lerp(BalletStageX, BalletOffX, Mathf.SmoothStep(0, 1, (t - BalletHold) / BalletExit));
+            }
         }
 
         // 在柜子外、不在侧幕后、又被光照到
@@ -301,6 +338,7 @@ namespace Sleight.RabbitTrick
 
             assistantT = BuildAssistant();
             dummyT = BuildDummy();
+            BuildBallerina();
         }
 
         Transform BuildAssistant()
@@ -346,8 +384,51 @@ namespace Sleight.RabbitTrick
             return t;
         }
 
+        void BuildBallerina()
+        {
+            var skin = Hex(0xF2DEBC);
+            var pink = Hex(0xF2A7C0);
+            var pinkDark = Hex(0xD9809F);
+            ballerina = view.Group("Ballerina", root, new Vector2(BalletOffX, Floor));
+            ballerinaSpin = view.Group("Spin", ballerina, Vector2.zero);
+            var s = ballerinaSpin;
+            // 踮着脚尖的腿：一条直立、一条抬起成 passé
+            view.Rect("BalletLegStand", s, new Vector2(0.02f, 0.38f), new Vector2(0.06f, 0.72f), skin, 27);
+            view.Rect("BalletShoe", s, new Vector2(0.02f, 0.03f), new Vector2(0.07f, 0.08f), pinkDark, 28);
+            var thigh = view.Rect("BalletLegLift", s, new Vector2(0.14f, 0.6f), new Vector2(0.06f, 0.32f), skin, 27);
+            thigh.transform.localRotation = Quaternion.Euler(0, 0, 70);
+            var shin = view.Rect("BalletShin", s, new Vector2(0.18f, 0.5f), new Vector2(0.06f, 0.3f), skin, 27);
+            shin.transform.localRotation = Quaternion.Euler(0, 0, -35);
+            view.Disc("BalletTutu", s, new Vector2(0, 0.82f), new Vector2(0.86f, 0.2f), pink, 29);
+            view.Disc("BalletTutuFrill", s, new Vector2(0, 0.79f), new Vector2(0.7f, 0.12f), pinkDark, 29);
+            view.Rect("BalletBodice", s, new Vector2(0, 1.0f), new Vector2(0.2f, 0.32f), pink, 30);
+            for (int i = -1; i <= 1; i += 2)
+            {
+                // 双臂举过头顶成环（fifth position）
+                var arm = view.Rect("BalletArm", s, new Vector2(i * 0.15f, 1.32f), new Vector2(0.05f, 0.4f), skin, 30);
+                arm.transform.localRotation = Quaternion.Euler(0, 0, -i * 22);
+            }
+            view.Disc("BalletHead", s, new Vector2(0, 1.3f), new Vector2(0.2f, 0.22f), skin, 31);
+            view.Disc("BalletBun", s, new Vector2(0, 1.44f), new Vector2(0.12f, 0.1f), Hex(0x3A2430), 31);
+            view.Disc("BalletTiara", s, new Vector2(0, 1.4f), new Vector2(0.14f, 0.04f), Hex(0xC8962E), 32);
+            ballerina.gameObject.SetActive(false);
+        }
+
         public override void Draw()
         {
+            bool on = BalletOnStage;
+            ballerina.gameObject.SetActive(on);
+            if (on)
+            {
+                float t = balletTime;
+                bool dancing = t >= BalletEnter && t < BalletEnter + BalletHold;
+                // 旋转：横向缩放在正反两面之间翻，像在原地转圈；走场时踮脚小碎步上下颠
+                float spin = dancing ? Mathf.Cos(t * 7f) : (t < BalletEnter ? 1f : -1f);
+                ballerinaSpin.localScale = new Vector3(Mathf.Sign(spin) * Mathf.Max(0.25f, Mathf.Abs(spin)), 1f, 1f);
+                float hop = dancing ? Mathf.Abs(Mathf.Sin(t * 3.5f)) * 0.06f : Mathf.Abs(Mathf.Sin(t * 9f)) * 0.025f;
+                ballerina.position = new Vector3(BalletX, Floor + hop, -0.2f);
+            }
+
             hatchPivot.localRotation = Quaternion.Euler(0, 0, hatch * HatchMaxAngle);
             float edge = Mathf.Lerp(CurtainClosedEdge, CurtainOpenEdge, open);
             curtainPivot.localScale = new Vector3(Mathf.Max(0.02f, edge - CurtainLeft), 1f, 1f);

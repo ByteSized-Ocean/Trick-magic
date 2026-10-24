@@ -23,7 +23,7 @@ namespace Sleight.RabbitTrick
         static readonly Color Brass = new Color32(210, 156, 79, 255);
         static readonly Color Cream = new Color32(242, 222, 188, 255);
 
-        public void Show(bool on, RabbitStageView view, string titleText, string captionText)
+        public void Show(bool on, RabbitStageView view, string titleText, string captionText, string skipText)
         {
             if (on && root == null) Build(view);
             if (on != showing)
@@ -36,6 +36,7 @@ namespace Sleight.RabbitTrick
 
             title.text = titleText;
             caption.text = captionText;
+            skip.text = skipText;
             var c = skip.color;
             c.a = 0.55f + 0.45f * Mathf.Sin(Time.unscaledTime * 3.5f);
             skip.color = c;
