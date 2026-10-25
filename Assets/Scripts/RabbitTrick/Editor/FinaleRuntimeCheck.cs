@@ -49,6 +49,7 @@ namespace Sleight.RabbitTrick.EditorTools
                 if (phase == 0)
                 {
                     if (now - phaseAt < 1) return;
+                    game.Scores.SaveRecords = false;
                     game.BeginLevel(RabbitTrickGame.LevelCount - 1, false);
                     target = new RenderTexture(1600, 900, 24); target.Create();
                     var hud = game.view.HudCanvas.GetComponent<Canvas>();
@@ -60,7 +61,7 @@ namespace Sleight.RabbitTrick.EditorTools
                 }
                 if (phase == 1)
                 {
-                    Expect(game.InFinale || game.Menu.Page == StageMenu.ScreenPage.Home, "Finale must be running.");
+                    Expect(game.InFinale || game.Menu.Page == StageMenu.ScreenPage.Results, "Finale must be running.");
                     if (!sawBow && game.view.FinaleBow > 0.95f)
                     {
                         sawBow = true;
@@ -69,12 +70,12 @@ namespace Sleight.RabbitTrick.EditorTools
                     }
                     if (!sawHalf && game.view.FinaleCurtain > 0.5f) { sawHalf = true; Save("Finale-CurtainHalf"); }
                     if (!sawDown && game.view.FinaleCurtain >= 1f) { sawDown = true; Save("Finale-CurtainDown"); }
-                    if (game.Menu.Page == StageMenu.ScreenPage.Home && !game.InFinale)
+                    if (game.Menu.Page == StageMenu.ScreenPage.Results && !game.InFinale)
                     {
                         Expect(sawBow && sawHalf && sawDown, $"Finale skipped a stage: bow={sawBow} half={sawHalf} down={sawDown}");
                         Expect(game.view.FinaleCurtain == 0f && game.view.FinaleFade == 0f, "Finale visuals must reset at the menu.");
                         Directory.CreateDirectory("Logs");
-                        File.WriteAllText("Logs/FinaleRuntimeValidation.txt", "PASS walk to centre, bow, ribbons, main curtain drop, fade, back to the main menu.\n");
+                        File.WriteAllText("Logs/FinaleRuntimeValidation.txt", "PASS walk to centre, bow, ribbons, main curtain drop, fade, show score results.\n");
                         Debug.Log("[Finale] CURTAIN CALL VERIFIED");
                         Camera.main.targetTexture = null;
                         SessionState.SetBool(Flag + ".Pass", true);

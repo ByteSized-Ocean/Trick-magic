@@ -1,50 +1,26 @@
-# 剧场音源记录
+# Scoring and the ten-act soundtrack
 
-音乐和掌声均为演奏 / 现场录音，不使用原先的程序化噪声掌声。
+Complete the trick while the audience still has patience. Every second left earns **100 points**, including hundredths of a second: **23.45 seconds = 2,345 points**. The live HUD shows remaining time, the available time bonus, and this show's earned total. The countdown freezes on success. A failed or timed-out act earns zero. Demonstrations and paused time never earn points or consume the act timer.
 
-## 第一关：巴赫：B 小调第二管弦乐组曲《谐谑曲》
+Each successful act adds its time bonus exactly once. Restarting an act replaces that act's score and keeps earlier act scores. Starting from the main menu or selecting an act starts a fresh show. Act records save locally and follow the trick if the programme order changes. A full-show record requires all ten acts in the same show; selecting the last act alone cannot set that record.
 
-- 文件：`Level1_Bach_Badinerie.ogg`
-- 演奏 / 录制：European Archive
-- 原页面标注：CC0
-- [音源和许可说明](https://commons.wikimedia.org/wiki/File:Bach,_Johann_Sebastian_-_Suite_No.2_in_B_Minor_-_X._Badinerie.ogg)
-- [许可文本](http://creativecommons.org/publicdomain/zero/1.0/deed.en)
+After act ten, the magician still bows and the curtain falls. A new results page lists all ten act scores, the show total, the best full show, and buttons for Play Again, View Levels, and Main Menu. The level browser also shows each trick's best score. All player-facing text is English.
 
-## 第二关：莫扎特：G 大调第十三号小夜曲 K.525，第一乐章 Allegro
+## Music by programme position
 
-- 文件：`Level2_Mozart_Allegro.ogg`
-- 演奏 / 录制：Musopen / European Archive（音源页面署名）
-- 原页面标注：Public domain
-- [音源和许可说明](https://commons.wikimedia.org/wiki/File:Mozart_K525_Serenade_in_G_Major_1_-_Allegro.ogg)
+| Act | Trick | Recording | Musical direction |
+| --- | --- | --- | --- |
+| 01 | The Rabbit | Bach: Badinerie, BWV 1067 | Playful flute figures for the opening rabbit trick. |
+| 02 | The Flowering Hat | Vivaldi: Mandolin Concerto, RV 425 | Bright plucked strings for the dove and blooming flowers. |
+| 03 | The Floating Lady | Bach: Goldberg Variations, Aria | A slow, suspended melody for levitation. |
+| 04 | The Substitution | Mozart: Eine kleine Nachtmusik, Allegro | Brisk theatrical strings for the cabinet exchange. |
+| 05 | The Still Rain | Chopin: Raindrop Prelude, Op. 28 No. 15 | Repeated raindrop notes for falling, frozen, and rising water. |
+| 06 | The Invisible Card | Chopin: Minute Waltz, Op. 64 No. 1 | Nimble piano for close-up palming. |
+| 07 | The Water Vault | Grieg: In the Hall of the Mountain King | A rising orchestral pulse for the escape deadline. |
+| 08 | The Mirror Split | Chopin: Waltz in C-sharp minor, Op. 64 No. 2 | Circling minor-key phrases for mirrors and the blade. |
+| 09 | The Golden Transfer | Bach: Partita No. 3, Preludio, BWV 1006 | Interweaving string patterns for the depth-screen transfer. |
+| 10 | The Vanishing Vault | Beethoven: Symphony No. 5, IV. Allegro | Triumphant brass for the bank vault and banknote finale. |
 
-## 第三关 / 主界面：巴赫：《哥德堡变奏曲》Aria
+Music is assigned by trick ID, so changing programme order keeps the music with its intended performance. The main menu uses the Bach Aria. Pause softens the music and shows the current track title; volume sliders continue to apply to all ten tracks.
 
-- 文件：`Level3_Bach_Aria.ogg`
-- 演奏 / 录制：Shelley Katz / Musopen
-- 原页面标注：CC0
-- [音源和许可说明](https://commons.wikimedia.org/wiki/File:Bach,_Goldberg_Variations,_Aria_(Musopen_version).ogg)
-- [许可文本](http://creativecommons.org/publicdomain/zero/1.0/deed.en)
-
-## 第四关：维瓦尔第：C 大调曼陀林协奏曲 RV 425
-
-- 文件：`Level4_Vivaldi_Mandolin.ogg`
-- 演奏 / 录制：The Milan Baroque Soloists
-- 原页面标注：PDM-owner
-- [音源和许可说明](https://commons.wikimedia.org/wiki/File:Antonio_Vivaldi,_Mandolin_Concerto_in_C_major,_RV_425.ogg)
-
-## 第五关：巴赫：E 大调第三帕蒂塔 BWV 1006，Preludio
-
-- 文件：`Level5_Bach_Preludio.ogg`
-- 演奏 / 录制：Gordon Rowland / Musopen
-- 原页面标注：Public domain
-- [音源和许可说明](https://commons.wikimedia.org/wiki/File:Johann_Sebastian_Bach_-_partita_no._3_in_e_major,_bwv_1006_-_1._preludio.ogg)
-
-## 通关掌声：Sound Effects - Applause after a concert
-
-- 文件：`TheatreApplause.ogg`
-- 演奏 / 录制：Amada44
-- 原页面标注：CC0
-- [音源和许可说明](https://commons.wikimedia.org/wiki/File:Sound_Effects_-_Applause_after_a_concert.ogg)
-- [许可文本](http://creativecommons.org/publicdomain/zero/1.0/deed.en)
-
-原始下载地址、文件 SHA-256 及原始署名保存在同目录 `AudioCredits.json`。游戏中的掌声只播放录音的一段，并使用渐入渐出；古典音乐在各关循环播放。
+The five new recordings use 90-second excerpts, short fades, and matched loudness. All music is bundled with the project and uses streaming audio import. Source pages, performer credits, public-domain/CC0 information, excerpt changes, and file hashes are recorded in [AudioCredits.json](AudioCredits.json). Existing applause is retained.

@@ -70,10 +70,12 @@ The gold physically belongs to the hidden rear chamber after the turn, so its de
 
 ## Integration and validation
 
-The new acts share the established hands, reach constraints, depth sorting, spotlight renderer, pause menu, audience patience, curtain transition, and classical recordings. They use distinct scenery and mechanisms rather than new control keys. All ten demonstrations drive the same hand controls and gameplay rules as normal play.
+The new acts share the established hands, reach constraints, depth sorting, spotlight renderer, pause menu, audience patience, curtain transition, and a distinct thematic classical recording for each trick. They use distinct scenery and mechanisms rather than new control keys. All ten demonstrations drive the same hand controls and gameplay rules as normal play.
 
 Validation covers ten successful acts, preservation of the first five acts, the new failure cases, live play-mode performances, both programme pages, and the existing input/menu checks. Review captures are written under `Logs/Act06-*` through `Logs/Act10-*`; reports are `Logs/TenActValidation.txt` and `Logs/GrandIllusionsRuntime.txt`.
 
 ## Creative references
 
 The gallery palming, water spectacle, and banknote finale use the broad cinematic language of an illusionist heist show, as described in the [official Now You See Me 2 synopsis](https://www.lionsgate.com/movies/now-you-see-me-2). The tank act also takes inspiration from the stage-escape tradition documented by [Guinness World Records](https://www.guinnessworldrecords.com/news/2024/03/escapologists-death-defying-escape-from-water-tank-leaves-audience-holding-their-768070). These are original interactive game routines and stage designs.
+
+Scoring now converts remaining time to 100 points per second. See [Scoring and soundtrack](SCORE-AND-MUSIC.md) for the ten-track programme and result rules.

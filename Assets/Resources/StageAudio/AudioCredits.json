@@ -52,5 +52,65 @@
     "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
     "artist": "<a href=\"//commons.wikimedia.org/wiki/User:Amada44\" title=\"User:Amada44\">Amada44</a>",
     "sha256": "a9bed3afd89d66c3ce13edb9f2be2a548ab87a2cc70827624905be90044f8e72"
+  },
+  {
+    "file": "Trick06_Chopin_MinuteWaltz.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Chopin_-_Waltz_No._6_in_D-flat_major%2C_Op._64%2C_No._1_%27Minute%27_%28Olga_Gurevich%29.flac",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/9/93/Chopin_-_Waltz_No._6_in_D-flat_major%2C_Op._64%2C_No._1_%27Minute%27_%28Olga_Gurevich%29.flac",
+    "license": "Public domain dedication by performer / Musopen",
+    "license_url": "https://creativecommons.org/publicdomain/mark/1.0/",
+    "artist": "Olga Gurevich",
+    "sha256": "1c676cd85d9d500da6c41f7902123c6b980475392d4fc5208e63750ab0d569fb",
+    "original_sha256": "d46a8b8b983dd1d14bdee5750352c6a6ff110e4116f9ae5da137d1facf62105f",
+    "adaptation": "90-second excerpt from 0s; stereo 44.1 kHz Vorbis; -22 LUFS normalization and short fades.",
+    "theme": "Quick, delicate palming in the gallery."
+  },
+  {
+    "file": "Trick07_Grieg_MountainKing.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Musopen_-_In_the_Hall_Of_The_Mountain_King.ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/b/bb/Musopen_-_In_the_Hall_Of_The_Mountain_King.ogg",
+    "license": "Public domain dedication by Musopen",
+    "license_url": "https://creativecommons.org/publicdomain/mark/1.0/",
+    "artist": "Czech National Symphony Orchestra / Musopen Symphony Orchestra",
+    "sha256": "1fcf81ad272a5cdd943ac3249bd2632724d9c497ecafc5989b664e2634d76f1b",
+    "original_sha256": "3bfa7424d3a148f1482a44688b77eb9138a7cea6cff7474799f1329181ab3342",
+    "adaptation": "90-second excerpt from 42s; stereo 44.1 kHz Vorbis; -22 LUFS normalization and short fades.",
+    "theme": "A growing orchestral pulse for the water escape and air deadline."
+  },
+  {
+    "file": "Trick08_Chopin_MirrorWaltz.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Chopin-waltz-op-64-no-2-in-c-sharp-minor.oga",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/1/17/Chopin-waltz-op-64-no-2-in-c-sharp-minor.oga",
+    "license": "CC0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "artist": "Musopen / Set Chopin Free",
+    "sha256": "767bab963d97fbecba9f91b568c345096b22e34a82c6eb17a5c00135ad5afc02",
+    "original_sha256": "7e9ec2e01058375f338efa0e952a09e13eac1fd6a310baca78035292b30c3825",
+    "adaptation": "90-second excerpt from 0s; stereo 44.1 kHz Vorbis; -22 LUFS normalization and short fades.",
+    "theme": "A circling minor-key waltz for reflection and the mirrored blade."
+  },
+  {
+    "file": "Trick09_Chopin_Raindrop.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Chopin_Prelude_Op_28_N_15_Giorgi_Latsabidze_performs.ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/d/d8/Chopin_Prelude_Op_28_N_15_Giorgi_Latsabidze_performs.ogg",
+    "license": "Public domain dedication by performer",
+    "license_url": "https://creativecommons.org/publicdomain/mark/1.0/",
+    "artist": "Giorgi Latsabidze",
+    "sha256": "304a8783f6a750b0738c9e154ec24604a8c9e95e2f9dc8255bca322045d191d3",
+    "original_sha256": "ba340f4e9edba3193f7c6e37cc6ce5e7a409834070e759c03f7f0abb7bc2a0dc",
+    "adaptation": "90-second excerpt from 0s; stereo 44.1 kHz Vorbis; -22 LUFS normalization and short fades.",
+    "theme": "Repeating raindrop notes for falling, frozen and rising water."
+  },
+  {
+    "file": "Trick10_Beethoven_Finale.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Ludwig_van_Beethoven_-_symphony_no._5_in_c_minor%2C_op._67_-_iv._allegro.ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/4/47/Ludwig_van_Beethoven_-_symphony_no._5_in_c_minor%2C_op._67_-_iv._allegro.ogg",
+    "license": "Public domain dedication by performer",
+    "license_url": "https://creativecommons.org/publicdomain/mark/1.0/",
+    "artist": "Skidmore College Orchestra / Musopen",
+    "sha256": "3697990dda364c0ca7efeae6bf1f2b61b98614afff4c29dc761fba009d2c3ba2",
+    "original_sha256": "e8ef66ab6190c9c366cc62f7e13e13a47c99193657aee3c2e0b5c696ead3d126",
+    "adaptation": "90-second excerpt from 0s; stereo 44.1 kHz Vorbis; -22 LUFS normalization and short fades.",
+    "theme": "Triumphant brass for the bank vault and banknote finale."
   }
 ]

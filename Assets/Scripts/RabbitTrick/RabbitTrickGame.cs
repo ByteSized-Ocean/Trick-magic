@@ -52,6 +52,11 @@ namespace Sleight.RabbitTrick
         static readonly string[] RabbitStepNames = { "01  SHOW THE EMPTY BOX", "02  HIDE RABBIT + CLOSE BOX", "03  REVEAL UNDER THE LIGHT" };
         void Expose(string reason) { if (Trick != null) Trick.Expose(reason); else Rules.Expose(reason); }
         public float Patience { get; private set; } = 1f;   // 1 = 满，0 = 耗尽
+        public ShowScore Scores { get; } = new ShowScore();
+        public bool ScoreAwarded { get; private set; }
+        public float RemainingSeconds => Mathf.Clamp01(Patience) * patienceSeconds;
+        public int TimeBonus => ShowScore.FromTime(RemainingSeconds);
+        public string TimeLeftText => (TimeBonus / 100f).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
         public bool Booed { get; private set; }             // 耐心耗尽导致的失败（台下扔鸡蛋、白菜）
         public bool ChangingLevel { get; private set; }
 
@@ -93,6 +98,7 @@ namespace Sleight.RabbitTrick
 
         void Start()
         {
+            Scores.LoadRecords();
             view.UseRuntimeFont();
             bell = Tone("Caught bell", 660f, 0.32f, false);
             reveal = Tone("Reveal", 440f, 0.45f, true);
@@ -151,6 +157,7 @@ namespace Sleight.RabbitTrick
         // 开始某一关：默认先在老电视里循环播放本关演示（前 3 秒不能跳过），玩家按键跳过后才正式开始。
         // 暂停菜单里的"重来"不再播演示。
         public void BeginLevel(int index) => BeginLevel(index, true);
+        public void StartShow(int index = 0) { Scores.BeginShow(); BeginLevel(index); }
         public void BeginLevel(int index, bool withDemo)
         {
             StopAllCoroutines(); ChangingLevel = InDemo = false; demo = null;
@@ -213,6 +220,7 @@ namespace Sleight.RabbitTrick
             rabbitFalling = false;
             rabbitFallVel = lidFallVel = 0f;
             Patience = 1f;
+            ScoreAwarded = false;
             Booed = false;
             patienceSeconds = PatienceByLevel[Mathf.Clamp(Level, 0, PatienceByLevel.Length - 1)];
             int id = TrickId;
@@ -286,6 +294,11 @@ namespace Sleight.RabbitTrick
                     Evaluate(dt);
                 }
                 TickPatience(dt);
+            }
+            if (IsFinished && !IsFailed && !ScoreAwarded && !ChangingLevel)
+            {
+                Scores.RecordWin(Level, TrickId, RemainingSeconds);
+                ScoreAwarded = true;
             }
             if ((IsFailed || IsFinished) && !resultSoundPlayed)
             {
@@ -371,8 +384,8 @@ namespace Sleight.RabbitTrick
             view.ResetFinale();
             InFinale = false;
             ChangingLevel = false;
-            LoadLevel(0);
-            Menu?.ShowHome();   // ShowHome 会停掉所有协程，所以放在最后
+            Scores.FinishShow();
+            Menu?.ShowResults();
         }
 
         // 谢幕时两只手的位置：平时垂在身体两侧；鞠躬时一只手按在胸前，另一只手往外展开
@@ -409,6 +422,7 @@ namespace Sleight.RabbitTrick
         void LoadLevel(int index)
         {
             Level = Mathf.Clamp(index, 0, LevelCount - 1);
+            Scores.ClearLevel(Level);
             ResetTrick();
         }
 

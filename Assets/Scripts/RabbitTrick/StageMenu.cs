@@ -9,7 +9,7 @@ namespace Sleight.RabbitTrick
     [DefaultExecutionOrder(-200)]
     public sealed class StageMenu : MonoBehaviour
     {
-        public enum ScreenPage { None, Home, Levels, Settings, Pause }
+        public enum ScreenPage { None, Home, Levels, Settings, Pause, Results }
         public ScreenPage Page { get; private set; }
         public bool BlocksGameplay => Page != ScreenPage.None;
         public Canvas Canvas { get; private set; }
@@ -18,6 +18,7 @@ namespace Sleight.RabbitTrick
         Font font;
         ScreenPage settingsReturn;
         int programmePage;
+        public MenuHatToy HatToy { get; private set; }
         static readonly Color Ink = new Color32(25, 20, 35, 255), Velvet = new Color32(92, 31, 52, 255);
         static readonly Color Gold = new Color32(210, 156, 79, 255), Cream = new Color32(242, 222, 188, 255), Teal = new Color32(100, 220, 199, 255);
         public void Initialize(RabbitTrickGame owner)
@@ -79,10 +80,12 @@ namespace Sleight.RabbitTrick
             else if (restored == ScreenPage.Levels) ShowLevels();
             else if (restored == ScreenPage.Settings) ShowSettings(back);
             else if (restored == ScreenPage.Pause) ShowPause();
+            else if (restored == ScreenPage.Results) ShowResults();
             else Hide();
         }
         void Clear(ScreenPage page)
         {
+            HatToy?.Hide();
             Page = page;
             foreach (Transform child in contents) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
             Canvas.gameObject.SetActive(true);
@@ -93,6 +96,7 @@ namespace Sleight.RabbitTrick
         }
         public void Hide()
         {
+            HatToy?.Hide();
             Page = ScreenPage.None; Time.timeScale = 1;
             if (Canvas != null) Canvas.gameObject.SetActive(false);
             if (game.view.HudCanvas != null) game.view.HudCanvas.gameObject.SetActive(true);
@@ -112,17 +116,16 @@ namespace Sleight.RabbitTrick
             Text("GameName", contents, 195, 281, 650, 120, "SLEIGHT", 86, Cream);
             Box("TitleRule", contents, 200, 425, 430, 3, Gold);
             Text("Tagline", contents, 200, 456, 580, 70, "In the light, a miracle.\nOut of sight, a secret.", 26, new Color(0.75f, 0.67f, 0.73f));
-            // A small geometric top hat echoes the props on stage.
-            Box("HatCrown", contents, 322, 592, 150, 93, new Color32(82, 49, 97, 255));
-            Box("HatBand", contents, 322, 658, 150, 16, Velvet);
-            Box("HatBrim", contents, 289, 686, 215, 7, Gold);
             Box("HomePanel", contents, 888, 225, 505, 516, new Color32(37, 28, 45, 255));
             Box("PanelRule", contents, 920, 251, 440, 2, Gold);
             Text("Programme", contents, 920, 275, 440, 30, "TONIGHT'S PROGRAMME", 19, Gold);
-            Button("StartGame", "START GAME", 920, 338, 440, () => game.BeginLevel(0));
+            Button("StartGame", "START GAME", 920, 338, 440, () => game.StartShow());
             Button("ViewLevels", "VIEW LEVELS", 920, 424, 440, ShowLevels);
             Button("Settings", "SETTINGS", 920, 510, 440, () => ShowSettings(ScreenPage.Home));
             Button("QuitGame", "QUIT GAME", 920, 596, 440, Quit);
+            HatToy = GetComponent<MenuHatToy>();
+            if (HatToy == null) HatToy = gameObject.AddComponent<MenuHatToy>();
+            HatToy.Build(contents, font, game.Soundtrack);
         }
         public void ShowLevels()
         {
@@ -138,8 +141,10 @@ namespace Sleight.RabbitTrick
                 int choice = i;
                 int trick = RabbitTrickGame.PlayOrder[i];   // 这一关演的是哪个魔术
                 float x = 190 + (item % 3) * 407, y = 405 + (item / 3) * 155;
-                var card = Button("Level" + (i + 1), "", x, y, 382, () => game.BeginLevel(choice), 133);
+                var card = Button("Level" + (i + 1), "", x, y, 382, () => game.StartShow(choice), 133);
                 Text("Number", card.transform, 20, 14, 60, 25, (i + 1).ToString("00"), 18, Gold);
+                var record = Text("BestScore", card.transform, 175, 14, 185, 25, "BEST " + game.Scores.BestForTrick(trick).ToString("N0"), 17, Gold);
+                record.alignment = TextAnchor.MiddleRight;
                 Text("Name", card.transform, 20, 43, 340, 40, names[trick], 28, Cream);
                 Text("Detail", card.transform, 20, 89, 342, 30, detail[trick], 17, new Color(0.71f, 0.64f, 0.71f));
             }
@@ -149,13 +154,35 @@ namespace Sleight.RabbitTrick
         public void ShowPause()
         {
             Clear(ScreenPage.Pause);
-            Heading("INTERMISSION", "SHOW PAUSED", "The stage is paused. Press P to resume; R restarts only while this menu is open.");
+            Heading("INTERMISSION", "SHOW PAUSED", "TIME " + game.TimeLeftText + "s   /   SHOW SCORE " + game.Scores.Total.ToString("N0")
+                + "\nPress P to resume. R restarts this act; earlier act scores are kept.");
             Button("ResumeGame", "RESUME    P", 190, 413, 550, Resume);
             Button("RestartLevel", "RESTART LEVEL    R", 190, 500, 550, Restart);
             Button("PlayDemo", "PLAY THIS DEMO", 190, 587, 550, PlayDemo);
             Button("PauseSettings", "SETTINGS", 844, 413, 550, () => ShowSettings(ScreenPage.Pause));
             Button("ReturnHome", "MAIN MENU", 844, 500, 550, ShowHome);
             Button("PauseQuit", "QUIT GAME", 844, 587, 550, Quit);
+            Text("NowPlaying", contents, 192, 697, 1200, 45, "NOW PLAYING: " + StageSoundtrack.TitleForTrick(game.TrickId), 18, Gold);
+        }
+        public void ShowResults()
+        {
+            Clear(ScreenPage.Results);
+            Heading("CURTAIN CALL / TONIGHT'S RESULTS", "SHOW SCORE: " + game.Scores.Total.ToString("N0"),
+                game.Scores.CompletedCount + " / " + RabbitTrickGame.LevelCount + " ACTS COMPLETE.  Every second left earns 100 points.\n"
+                + "BEST FULL SHOW: " + game.Scores.BestFullShow.ToString("N0") + "   /   Replay the show to beat your record.");
+            string[] names = { "THE RABBIT", "THE SUBSTITUTION", "THE FLOATING LADY", "THE FLOWERING HAT", "THE GOLDEN TRANSFER",
+                "THE INVISIBLE CARD", "THE WATER VAULT", "THE MIRROR SPLIT", "THE STILL RAIN", "THE VANISHING VAULT" };
+            for (int i = 0; i < RabbitTrickGame.LevelCount; i++)
+            {
+                float x = i < 5 ? 190 : 820, y = 415 + (i % 5) * 53;
+                var row = Box("ActScore" + (i + 1), contents, x, y, 580, 43, new Color32(46, 31, 48, 255));
+                Text("Act", row.transform, 14, 5, 425, 32, (i + 1).ToString("00") + "  " + names[RabbitTrickGame.PlayOrder[i]], 18, Cream);
+                var value = Text("Points", row.transform, 439, 5, 125, 32, game.Scores.Completed(i) ? game.Scores.ForLevel(i).ToString("N0") : "--", 21, Teal);
+                value.alignment = TextAnchor.MiddleRight;
+            }
+            Button("ReplayShow", "PLAY AGAIN", 190, 729, 355, () => game.StartShow());
+            Button("ResultsLevels", "VIEW LEVELS", 617, 729, 355, ShowLevels);
+            Button("ResultsHome", "MAIN MENU", 1044, 729, 355, ShowHome);
         }
         public void ShowSettings(ScreenPage back)
         {

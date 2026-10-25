@@ -37,6 +37,7 @@ namespace Sleight.RabbitTrick
         [SerializeField] Image patienceFill, patienceBack;
         [SerializeField] Text stepsTitle;
         [SerializeField] Text mechanicLabel;
+        [SerializeField] Text scoreLabel;
         public Transform World => world;
         public Transform HudCanvas => hintLabel != null ? hintLabel.transform.parent : null;
         public Font HudFont => hintLabel != null ? hintLabel.font : interfaceFont;
@@ -346,6 +347,19 @@ namespace Sleight.RabbitTrick
 
         // 团队决定游戏内文字全部用英文（中文文案仍留在代码里，改回只需让这里返回 true）。
         public bool Chinese => false;
+
+        public void EnsureScoreHud()
+        {
+            if (HudCanvas == null || scoreLabel != null) return;
+            var strip = Panel("ScoreStrip", HudCanvas, new Vector2(520, -24), new Vector2(610, 40), new Color(0.07f, 0.055f, 0.11f, 0.9f));
+            scoreLabel = Label("ScoreReadout", strip.transform, new Vector2(12, -4), new Vector2(586, 32), "", 18, gold);
+            scoreLabel.alignment = TextAnchor.MiddleCenter;
+            scoreLabel.resizeTextForBestFit = true; scoreLabel.resizeTextMinSize = 15; scoreLabel.resizeTextMaxSize = 18;
+            resultPanel.GetComponent<RectTransform>().sizeDelta = new Vector2(920, 300);
+            resultBody.rectTransform.sizeDelta = new Vector2(840, 155);
+            resultBody.fontSize = 22;
+            resultTitle.resizeTextForBestFit = true; resultTitle.resizeTextMinSize = 24; resultTitle.resizeTextMaxSize = 38;
+        }
 
         void BuildHud()
         {
@@ -1026,17 +1040,23 @@ namespace Sleight.RabbitTrick
             if (game.InDemo) controls.text = "DEMONSTRATION  /  SPACE OR ENTER TO PLAY  /  P MENU";
             else controls.text = "A D  Walk     HOLD W / S  Smooth depth     ARROWS  Hand     F  Switch hand     Hold E  Grab     P  Menu";
             // 被轰下台时先让东西飞一会儿，再弹结算面板，免得面板挡住魔术师
+            EnsureScoreHud();
+            scoreLabel.text = game.InDemo ? "DEMONSTRATION  /  NO SCORE"
+                : "TIME " + game.TimeLeftText + "s    BONUS " + game.TimeBonus.ToString("N0") + "    TOTAL " + game.Scores.Total.ToString("N0");
+            scoreLabel.transform.parent.gameObject.SetActive(!game.InFinale);
             resultPanel.SetActive((game.IsFailed || game.IsFinished) && !game.ChangingLevel && !game.InDemo && !(game.Booed && game.ResultAge < 3.5f));
             if (game.IsFailed)
             {
                 resultTitle.text = game.Booed ? "BOOED OFF THE STAGE!" : "CAUGHT!";
-                resultBody.text = game.FailureReason + "\nPress R to try this trick again.";
+                resultBody.text = game.FailureReason + "\nACT SCORE 0   /   SHOW TOTAL " + game.Scores.Total.ToString("N0") + "\nPress R to try this trick again.";
             }
             else if (game.IsFinished)
             {
                 resultTitle.text = game.SuccessTitle;
                 bool last = game.Level >= RabbitTrickGame.LevelCount - 1;
-                resultBody.text = Ordinal(game.Level + 1).ToUpper() + " TRICK COMPLETE  /  " + (last ? "RETURNING TO MAIN MENU" : "NEXT TRICK COMING UP");
+                resultBody.text = "TIME LEFT " + game.TimeLeftText + "s  x 100 = " + game.Scores.ForLevel(game.Level).ToString("N0") + " POINTS\n"
+                    + "ACT BEST " + game.Scores.BestForTrick(game.TrickId).ToString("N0") + "   /   SHOW TOTAL " + game.Scores.Total.ToString("N0")
+                    + "\n" + (last ? "CURTAIN CALL & SHOW RESULTS" : "NEXT TRICK COMING UP");
             }
             var c = flash.color;
             c.a = game.IsFailed && !game.Booed ? Mathf.Max(0, 0.45f - game.ResultAge) : 0;

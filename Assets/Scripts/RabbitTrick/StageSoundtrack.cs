@@ -4,7 +4,12 @@ namespace Sleight.RabbitTrick
 {
     public sealed class StageSoundtrack : MonoBehaviour
     {
-        static readonly string[] Names = { "Level1_Bach_Badinerie", "Level2_Mozart_Allegro", "Level3_Bach_Aria", "Level4_Vivaldi_Mandolin", "Level5_Bach_Preludio" };
+        static readonly string[] Names = { "Level1_Bach_Badinerie", "Level2_Mozart_Allegro", "Level3_Bach_Aria", "Level4_Vivaldi_Mandolin", "Level5_Bach_Preludio",
+            "Trick06_Chopin_MinuteWaltz", "Trick07_Grieg_MountainKing", "Trick08_Chopin_MirrorWaltz", "Trick09_Chopin_Raindrop", "Trick10_Beethoven_Finale" };
+        static readonly string[] Titles = { "BACH / BADINERIE", "MOZART / EINE KLEINE NACHTMUSIK: ALLEGRO", "BACH / GOLDBERG VARIATIONS: ARIA",
+            "VIVALDI / MANDOLIN CONCERTO", "BACH / PARTITA NO. 3: PRELUDIO", "CHOPIN / MINUTE WALTZ", "GRIEG / IN THE HALL OF THE MOUNTAIN KING",
+            "CHOPIN / WALTZ IN C-SHARP MINOR", "CHOPIN / RAINDROP PRELUDE", "BEETHOVEN / SYMPHONY NO. 5: FINALE" };
+        public static string TitleForTrick(int trickId) => Titles[Mathf.Clamp(trickId, 0, Titles.Length - 1)];
         public AudioClip[] Tracks { get; private set; }
         public AudioClip Applause { get; private set; }
         public AudioSource Music { get; private set; }
@@ -29,8 +34,7 @@ namespace Sleight.RabbitTrick
         public void PlayLevel(int level)
         {
             if (Music == null || Tracks == null) return;
-            int[] programme = { 0, 1, 2, 3, 4, 4, 2, 1, 3, 0 };
-            var next = Tracks[programme[Mathf.Clamp(level, 0, programme.Length - 1)]];
+            var next = Tracks[Mathf.Clamp(level, 0, Tracks.Length - 1)];
             if (Music.clip == next && Music.isPlaying) return;
             Music.clip = next; if (next != null) Music.Play();
         }

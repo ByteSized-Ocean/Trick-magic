@@ -1,0 +1,190 @@
+[
+  {
+    "file": "Mouse.ogg",
+    "kind": "Original stylised animal vocalisation",
+    "source": "Tools/GenerateHatAudio.py",
+    "third_party_samples": false,
+    "sha256": "c5e584e713efe65499c94ab04095df71ab2dc576fe098fb50fb370bbd579b972"
+  },
+  {
+    "file": "Rabbit.ogg",
+    "kind": "Original stylised animal vocalisation",
+    "source": "Tools/GenerateHatAudio.py",
+    "third_party_samples": false,
+    "sha256": "c6fef28e3ed4518d677b08320d6c8bd9d68f09ea88ee50c703256047765ca26b"
+  },
+  {
+    "file": "Dove.ogg",
+    "kind": "Original stylised animal vocalisation",
+    "source": "Tools/GenerateHatAudio.py",
+    "third_party_samples": false,
+    "sha256": "eb82c52957815c7a177e791e10ff418edd4b22cfdecdeee72e008b3042601584"
+  },
+  {
+    "file": "Snake.ogg",
+    "kind": "Original stylised animal vocalisation",
+    "source": "Tools/GenerateHatAudio.py",
+    "third_party_samples": false,
+    "sha256": "ba2cfd8600846f1bd14f7d2a9b9c57f26b7bc6af4bd634c159e9b11daf5255da"
+  },
+  {
+    "file": "Monkey.ogg",
+    "kind": "Original stylised animal vocalisation",
+    "source": "Tools/GenerateHatAudio.py",
+    "third_party_samples": false,
+    "sha256": "7da76322be3eab387af3d9fb6ff196af01053e7ce79fbbda4ef762d87f2ac957"
+  },
+  {
+    "file": "Orca.ogg",
+    "kind": "Original stylised animal vocalisation",
+    "source": "Tools/GenerateHatAudio.py",
+    "third_party_samples": false,
+    "sha256": "290b55bfd0bd3c1352dcb476c717d84f654ef8d3b02bfe00477b17610f0558f5"
+  },
+  {
+    "file": "EmperorPenguin.ogg",
+    "kind": "Original stylised animal vocalisation",
+    "source": "Tools/GenerateHatAudio.py",
+    "third_party_samples": false,
+    "sha256": "bfd9a1259c2e846acff853a2a181c66c632a0852a266353df1acf655cc9a0c6d"
+  },
+  {
+    "file": "DivineDragon.ogg",
+    "kind": "Original stylised animal vocalisation",
+    "source": "Tools/GenerateHatAudio.py",
+    "third_party_samples": false,
+    "sha256": "3be8c6f5027e9484107ec633168e9e738c3595f210eb0a72b3e522e17e29c3d2"
+  },
+  {
+    "file": "GoldenChime.ogg",
+    "kind": "Original magic cue",
+    "source": "Tools/GenerateHatAudio.py",
+    "third_party_samples": false,
+    "sha256": "c14dfdd287f4c8fc7eb522b36f8d08b8fb8dfbbbd6f37e29cfb25ae9c1d0ea48"
+  },
+  {
+    "file": "DragonFanfare.ogg",
+    "kind": "Original magic cue",
+    "source": "Tools/GenerateHatAudio.py",
+    "third_party_samples": false,
+    "sha256": "536fb7c3501473623626a8aff4abf306be2b7d2e508c5f7144bfff532fe5967a"
+  },
+  {
+    "file": "Eagle.ogg",
+    "kind": "Animal call recording",
+    "source": "https://commons.wikimedia.org/wiki/File:Bald_Eagle_Yellowstone_National_Park.ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/5/59/Bald_Eagle_Yellowstone_National_Park.ogg",
+    "artist": "National Park Service",
+    "license": "Public domain / US government",
+    "license_url": "https://www.nps.gov/aboutus/disclaimer.htm",
+    "adaptation": "Trimmed to at most four seconds; mono 44.1 kHz; peak matching and short fades.",
+    "sha256": "401710fd64175da84bd233c3d2f227b510a65a9d326fa8d910968443a2d6cefe"
+  },
+  {
+    "file": "Elephant.ogg",
+    "kind": "Animal call recording",
+    "source": "https://commons.wikimedia.org/wiki/File:Elephant_voice_-_trumpeting.ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/4/40/Elephant_voice_-_trumpeting.ogg",
+    "artist": "Info-farmer / தகவலுழவன்",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "adaptation": "Trimmed to at most four seconds; mono 44.1 kHz; peak matching and short fades.",
+    "sha256": "87c803bc74ff08bb5019f5ba1b0e588d58a8fd14e85996059bd45045ce572e4f"
+  },
+  {
+    "file": "Bear.ogg",
+    "kind": "Animal call recording",
+    "source": "https://opengameart.org/content/bear-growls",
+    "original": "https://opengameart.org/sites/default/files/bear_01.ogg",
+    "artist": "U.S. Fish & Wildlife Service; edited by AntumDeluge",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "adaptation": "Trimmed to at most four seconds; mono 44.1 kHz; peak matching and short fades.",
+    "sha256": "13bca6bc156dffe7829ea20814bda7c947c644bcacce4bbeae0b24ada334200b"
+  },
+  {
+    "file": "Lion.ogg",
+    "kind": "Designed animal roar",
+    "source": "https://sfxmint.com/sounds/lion-roar-02",
+    "original": "https://sfxmint.com/dl/lion-roar-02.wav",
+    "artist": "SFXMint",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "adaptation": "Trimmed to at most four seconds; mono 44.1 kHz; peak matching and short fades.",
+    "sha256": "0559ca817e41db31386d5a60837eee001d7f04f2d17366f4721aa89438f5dc80"
+  },
+  {
+    "file": "Tiger.ogg",
+    "kind": "Designed animal roar",
+    "source": "https://sfxmint.com/sounds/short-tiger-roar-01",
+    "original": "https://sfxmint.com/dl/short-tiger-roar-01.wav",
+    "artist": "SFXMint",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "adaptation": "Trimmed to at most four seconds; mono 44.1 kHz; peak matching and short fades.",
+    "sha256": "119d1d6845c39cab0f2a04ca231a93887ea2331e86fa19e4b2f7648360229b06"
+  },
+  {
+    "file": "WindGust.ogg",
+    "kind": "Original departure Foley",
+    "source": "Tools/PrepareHatJourneyAudio.py",
+    "third_party_samples": false,
+    "sha256": "f6f8088ff378206137968a743c4d52fcb25b0088dd1ff6194612e23f9ab1afd3"
+  },
+  {
+    "file": "PawRun.ogg",
+    "kind": "Original departure Foley",
+    "source": "Tools/PrepareHatJourneyAudio.py",
+    "third_party_samples": false,
+    "sha256": "87fa0101373488d0bfebf924d116b3a3f9b844ed5fd55e8d22bc9fa6909052a4"
+  },
+  {
+    "file": "Stampede.ogg",
+    "kind": "Original departure Foley",
+    "source": "Tools/PrepareHatJourneyAudio.py",
+    "third_party_samples": false,
+    "sha256": "3a1a94cd0ba85d5bfbb8a435adee18a9bd13ee3a3291d6b3838d5fcc941f9b93"
+  },
+  {
+    "file": "BananaThrow.ogg",
+    "kind": "Original departure Foley",
+    "source": "Tools/PrepareHatJourneyAudio.py",
+    "third_party_samples": false,
+    "sha256": "39f962f33f80ca6c512ac60d819c5936278980ac266a1cdaf2f36ea3a2565089"
+  },
+  {
+    "file": "BananaSplat.ogg",
+    "kind": "Original departure Foley",
+    "source": "Tools/PrepareHatJourneyAudio.py",
+    "third_party_samples": false,
+    "sha256": "1142fef2615beceb6c183db1710c1ea15d854188fb30c16c66cf4b7c9da4d2da"
+  },
+  {
+    "file": "IceSlide.ogg",
+    "kind": "Original departure Foley",
+    "source": "Tools/PrepareHatJourneyAudio.py",
+    "third_party_samples": false,
+    "sha256": "b9e86b91c3cd559cc420b418099748427ab63508040e00bc0fc5f85c02de98fd"
+  },
+  {
+    "file": "OceanSplash.ogg",
+    "kind": "Original departure Foley",
+    "source": "Tools/PrepareHatJourneyAudio.py",
+    "third_party_samples": false,
+    "sha256": "de08467aec22cbedd1adff1298d7a3584b9d16fe99c52d664a8bf12dfcb83709"
+  },
+  {
+    "file": "SwimBubbles.ogg",
+    "kind": "Original departure Foley",
+    "source": "Tools/PrepareHatJourneyAudio.py",
+    "third_party_samples": false,
+    "sha256": "406d00200871c3e5afb9c8b258224183286c5ed6b0f3a83260f3291ef9ee47ac"
+  },
+  {
+    "file": "CloudFlight.ogg",
+    "kind": "Original departure Foley",
+    "source": "Tools/PrepareHatJourneyAudio.py",
+    "third_party_samples": false,
+    "sha256": "fa96b23c209483b1316ac3f57a091f4978cedf6a90dfde95b55e4e3a4f97651a"
+  }
+]

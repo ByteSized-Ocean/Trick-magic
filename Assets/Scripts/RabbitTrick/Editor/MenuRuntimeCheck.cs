@@ -64,6 +64,7 @@ namespace Sleight.RabbitTrick.EditorTools
                 {
                     if (now - phaseAt < 1) return;
                     Expect(game.Menu.Page == StageMenu.ScreenPage.Home && Time.timeScale == 0, "Game must start on the home menu.");
+                    game.Scores.SaveRecords = false;
                     target = new RenderTexture(1600, 900, 24); target.Create(); Camera.main.targetTexture = target;
                     ConfigureCanvas(game.Menu.Canvas);
                     ConfigureCanvas(game.view.HudCanvas.GetComponent<Canvas>());
@@ -118,10 +119,15 @@ namespace Sleight.RabbitTrick.EditorTools
                         slider.value = 0.21f;
                         Expect(Mathf.Abs(audio.MusicVolume - 0.21f) < 0.001f && Mathf.Abs(PlayerPrefs.GetFloat("Sleight.Music") - 0.21f) < 0.001f, "Music slider must apply and persist.");
                         slider.value = volume;
-                        Expect(audio.Tracks.Length == 5 && audio.Applause != null && audio.Applause.length > 7, "Five classical recordings and real applause must load.");
+                        Expect(audio.Tracks.Length == RabbitTrickGame.LevelCount && audio.Applause != null && audio.Applause.length > 7, "Ten classical recordings and real applause must load.");
                         var unique = new HashSet<AudioClip>();
                         foreach (var track in audio.Tracks) { Expect(track != null && track.length > 30, "Missing classical music track."); unique.Add(track); }
-                        Expect(unique.Count == 5, "Each level must have a distinct classical recording.");
+                        Expect(unique.Count == RabbitTrickGame.LevelCount, "Each level must have a distinct classical recording.");
+                        foreach (int trickId in RabbitTrickGame.PlayOrder)
+                        {
+                            audio.PlayLevel(trickId);
+                            Expect(audio.Music.clip == audio.Tracks[trickId], "Music must follow the trick after programme reordering.");
+                        }
                         Click(game, "BackSettings"); Next(22); break;
                     case 22:
                         Save("MainMenu");
@@ -152,7 +158,7 @@ namespace Sleight.RabbitTrick.EditorTools
                     case 17:
                         Save("GoldenReveal"); game.enabled = true;
                         Directory.CreateDirectory("Logs");
-                        File.WriteAllText("Logs/MenuRuntimeValidation.txt", "PASS home, level browser, settings; native mouse raycasts and button clicks; P pauses; R only restarts inside pause; mouse restart; demo from pause; return home; five distinct classical recordings and real applause.\n");
+                        File.WriteAllText("Logs/MenuRuntimeValidation.txt", "PASS home, level browser, settings; native mouse raycasts and button clicks; P pauses; R only restarts inside pause; mouse restart; demo from pause; return home; ten distinct classical recordings, reordered trick mapping and real applause.\n");
                         Debug.Log("[TheatreMenus] HOME, PAUSE, INPUT, AUDIO VERIFIED");
                         held = Array.Empty<Key>(); Application.logMessageReceived -= CheckLog;
                         SessionState.SetBool(Flag + ".Pass", true); Camera.main.targetTexture = null;
