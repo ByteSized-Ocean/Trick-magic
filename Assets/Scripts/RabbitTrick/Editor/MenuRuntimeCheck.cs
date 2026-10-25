@@ -133,7 +133,7 @@ namespace Sleight.RabbitTrick.EditorTools
                     case 21:
                         Click(game, "RestartLevel");
                         Expect(game.Level == 0 && Mathf.Abs(game.Hands.BodyPosition.x - 3.85f) < 0.02f, "Mouse restart must reset current level.");
-                        game.BeginLevel(4, false); game.enabled = false; Camera.main.targetTexture = target;
+                        game.BeginLevel(RabbitTrickGame.PositionOf(4), false);   // 金球穿越（魔术编号 4） game.enabled = false; Camera.main.targetTexture = target;
                         SetDepthFrame(game, 5.1f, 0.05f); Next(14); break;
                     case 14:
                         Save("DepthFront"); SetDepthFrame(game, 5.65f, 0.45f); Next(15); break;

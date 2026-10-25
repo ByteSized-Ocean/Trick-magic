@@ -123,8 +123,9 @@ namespace Sleight.RabbitTrick
             foreach (var p in MovableProps) FollowLane(p, Floor);
             if (Flying)
             {
-                dove.position += Vector2.left * 0.52f * dt;
-                dove.position = new Vector2(dove.position.x, Mathf.MoveTowards(dove.position.y, 2.85f, dt * 1.3f));
+                // 飞出舞台用的时间是原来的一半（速度加倍）
+                dove.position += Vector2.left * 1.04f * dt;
+                dove.position = new Vector2(dove.position.x, Mathf.MoveTowards(dove.position.y, 2.85f, dt * 2.6f));
                 if (dove.position.x < -0.6f)
                 {
                     Flying = false; DoveGone = true;

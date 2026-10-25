@@ -134,13 +134,14 @@ namespace Sleight.RabbitTrick
                 "Two palms conceal one impossible card.", "Drain the tank. Beat the air clock.", "Tune the mirrors before using the blade.", "Freeze the water. Make it rise.", "Balance the vault. Make it vanish." };
             for (int item = 0; item < 5; item++)
             {
-                int i = programmePage * 5 + item;
+                int i = programmePage * 5 + item;   // 第几关（出场顺序）
                 int choice = i;
+                int trick = RabbitTrickGame.PlayOrder[i];   // 这一关演的是哪个魔术
                 float x = 190 + (item % 3) * 407, y = 405 + (item / 3) * 155;
                 var card = Button("Level" + (i + 1), "", x, y, 382, () => game.BeginLevel(choice), 133);
                 Text("Number", card.transform, 20, 14, 60, 25, (i + 1).ToString("00"), 18, Gold);
-                Text("Name", card.transform, 20, 43, 340, 40, names[i], 28, Cream);
-                Text("Detail", card.transform, 20, 89, 342, 30, detail[i], 17, new Color(0.71f, 0.64f, 0.71f));
+                Text("Name", card.transform, 20, 43, 340, 40, names[trick], 28, Cream);
+                Text("Detail", card.transform, 20, 89, 342, 30, detail[trick], 17, new Color(0.71f, 0.64f, 0.71f));
             }
             Button(programmePage == 0 ? "NextActs" : "PreviousActs", programmePage == 0 ? "ACT II: TRICKS 06 - 10  >" : "<  ACT I: TRICKS 01 - 05", 190, 712, 620, () => { programmePage = 1 - programmePage; ShowLevels(); }, 57);
             Button("BackHome", "MAIN MENU", 1030, 712, 378, ShowHome, 57);

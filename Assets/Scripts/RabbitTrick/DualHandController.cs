@@ -47,7 +47,8 @@ namespace Sleight.RabbitTrick
             if (kb.fKey.wasPressedThisFrame) Active = 1 - Active;
             float walkX = (kb.dKey.isPressed ? 1 : 0) - (kb.aKey.isPressed ? 1 : 0);
             float walkDepth = (kb.wKey.isPressed ? 1 : 0) - (kb.sKey.isPressed ? 1 : 0);
-            float stepY = walkDepth * walkSpeed * dt * 0.65f;
+            // 单按 W / S 时也要和左右走一样顺：纵深速度提一点，并且只在真的按着时移动
+            float stepY = walkDepth * walkSpeed * dt * 0.85f;
             var hand = new Vector2((kb.rightArrowKey.isPressed ? 1 : 0) - (kb.leftArrowKey.isPressed ? 1 : 0), (kb.upArrowKey.isPressed ? 1 : 0) - (kb.downArrowKey.isPressed ? 1 : 0));
             MoveBody(game, new Vector2(walkX * walkSpeed * dt, stepY));
             Move(game, hand.normalized * speed * dt);
@@ -75,7 +76,9 @@ namespace Sleight.RabbitTrick
             var target = BodyPosition + new Vector2(delta.x, delta.y * 0.55f);
             target.x = Mathf.Clamp(target.x, 0.85f, 9.15f); target.y = Mathf.Clamp(target.y, 1.18f, 1.72f);
             delta = target - BodyPosition;
-            if (delta.sqrMagnitude < 0.000001f) return;
+            // 只跳过真正为零的位移。原来的门槛是 1e-6（每帧 0.001 单位），帧率高时单按 W / S
+            // 的纵深位移每帧都比它小，就会被整帧丢掉，走起来一卡一卡；加上左右位移才超过门槛，所以 W+D 是顺的。
+            if (delta.sqrMagnitude < 1e-12f) return;
             for (int i = 0; i < 2; i++)
             {
                 var item = Hands[i].holding; Vector2 anchor = Hands[i].position;
