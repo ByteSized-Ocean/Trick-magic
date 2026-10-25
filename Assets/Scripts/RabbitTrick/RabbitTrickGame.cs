@@ -240,7 +240,8 @@ namespace Sleight.RabbitTrick
                 view.Draw(this);
                 return;
             }
-            // Restart is available only from the P menu, by click or its R shortcut.
+            // 平时 R 只在 P 菜单里生效（重来本关）；露馅之后可以直接按 R 重来当前关，不用先开菜单。
+            if (IsFailed && !ChangingLevel && kb != null && kb.rKey.wasPressedThisFrame) { RestartLevel(); return; }
 #if UNITY_EDITOR
             // 调试：F9 直接走一遍落幕 → 拉开，不用先把魔术演完
             if (kb != null && kb.f9Key.wasPressedThisFrame && !ChangingLevel && Curtains != null) StartCoroutine(NextLevel());

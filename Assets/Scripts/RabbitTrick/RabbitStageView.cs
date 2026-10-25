@@ -869,7 +869,7 @@ namespace Sleight.RabbitTrick
             if (game.IsFailed)
             {
                 resultTitle.text = game.Booed ? "BOOED OFF THE STAGE!" : "CAUGHT!";
-                resultBody.text = game.FailureReason + "\nPress P for the menu, then click Restart or press R.";
+                resultBody.text = game.FailureReason + "\nPress R to try this trick again.";
             }
             else if (game.IsFinished)
             {
