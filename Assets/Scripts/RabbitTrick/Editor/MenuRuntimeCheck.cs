@@ -78,7 +78,8 @@ namespace Sleight.RabbitTrick.EditorTools
                         Click(game, "ViewLevels"); Next(2); break;
                     case 2:
                         Expect(game.Menu.Page == StageMenu.ScreenPage.Levels, "Level browser must open."); Save("LevelSelect");
-                        Click(game, "Level5"); Expect(game.Level == 4 && !game.InDemo && !game.Menu.BlocksGameplay, "Level card must start normal play, not a forced demo.");
+                        Click(game, "Level5"); Expect(game.Level == 4 && game.InDemo && !game.CanSkipDemo && !game.Menu.BlocksGameplay, "Level card must start with its demo, unskippable for the first 3 seconds.");
+                        game.EndDemo();
                         Camera.main.targetTexture = target; savedX = game.Hands.BodyPosition.x; held = new[] { Key.D }; Next(3); break;
                     case 3:
                         Expect(game.Hands.BodyPosition.x > savedX + 0.08f, "Player must move after leaving the menu.");
@@ -122,12 +123,13 @@ namespace Sleight.RabbitTrick.EditorTools
                         Save("MainMenu");
                         Click(game, "StartGame"); Next(13); break;
                     case 13:
-                        Expect(game.Level == 0 && !game.InDemo && !game.Menu.BlocksGameplay, "Start Game must begin the first trick.");
+                        Expect(game.Level == 0 && game.InDemo && !game.Menu.BlocksGameplay, "Start Game must begin the first trick with its demo.");
+                        game.EndDemo();
                         game.Hands.MoveBody(game, Vector2.right * 0.5f); game.Menu.ShowPause(); Next(21); break;
                     case 21:
                         Click(game, "RestartLevel");
                         Expect(game.Level == 0 && Mathf.Abs(game.Hands.BodyPosition.x - 3.85f) < 0.02f, "Mouse restart must reset current level.");
-                        game.BeginLevel(4); game.enabled = false; Camera.main.targetTexture = target;
+                        game.BeginLevel(4, false); game.enabled = false; Camera.main.targetTexture = target;
                         SetDepthFrame(game, 5.1f, 0.05f); Next(14); break;
                     case 14:
                         Save("DepthFront"); SetDepthFrame(game, 5.65f, 0.45f); Next(15); break;

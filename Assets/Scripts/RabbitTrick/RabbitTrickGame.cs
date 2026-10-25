@@ -137,20 +137,21 @@ namespace Sleight.RabbitTrick
 
         // 演示里的一帧：脚本代替键盘驱动双手，其余判定照常跑；不扣耐心、不落幕。
         // 左上角的"重播演示"按钮：重新开始本关并播一遍演示
-        public void ReplayDemo()
-        {
-            BeginLevel(Level);
-            StartDemo();
-        }
-        public void BeginLevel(int index)
+        public void ReplayDemo() => BeginLevel(Level);
+
+        // 开始某一关：默认先在老电视里循环播放本关演示（前 3 秒不能跳过），玩家按键跳过后才正式开始。
+        // 暂停菜单里的"重来"不再播演示。
+        public void BeginLevel(int index) => BeginLevel(index, true);
+        public void BeginLevel(int index, bool withDemo)
         {
             StopAllCoroutines(); ChangingLevel = InDemo = false; demo = null;
             Audience.Scripted = false;
             if (Curtains != null) Curtains.SnapOpen();
             Menu?.Hide(); Soundtrack?.StopEffects();
             LoadLevel(index);
+            if (withDemo) StartDemo();
         }
-        public void RestartLevel() => BeginLevel(Level);
+        public void RestartLevel() => BeginLevel(Level, false);
         public void CancelForHome()
         {
             StopAllCoroutines(); ChangingLevel = InDemo = false; demo = null;
@@ -239,7 +240,8 @@ namespace Sleight.RabbitTrick
                 view.Draw(this);
                 return;
             }
-            // Restart is available only from the P menu, by click or its R shortcut.
+            // 平时 R 只在 P 菜单里生效（重来本关）；露馅之后可以直接按 R 重来当前关，不用先开菜单。
+            if (IsFailed && !ChangingLevel && kb != null && kb.rKey.wasPressedThisFrame) { RestartLevel(); return; }
 #if UNITY_EDITOR
             // 调试：F9 直接走一遍落幕 → 拉开，不用先把魔术演完
             if (kb != null && kb.f9Key.wasPressedThisFrame && !ChangingLevel && Curtains != null) StartCoroutine(NextLevel());
@@ -314,7 +316,7 @@ namespace Sleight.RabbitTrick
             Curtains.Open();
             yield return new WaitUntil(() => Curtains.Settled);
             ChangingLevel = false;
-            // Demonstrations are an explicit action in the P menu.
+            StartDemo();   // 每关开始先播演示（也可以随时在 P 菜单里重播）
         }
 
         void LoadLevel(int index)
