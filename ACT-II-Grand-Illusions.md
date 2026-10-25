@@ -1,5 +1,7 @@
 # Act II: Grand Illusions
 
+> **Play order (changed 2026-10-25):** tricks 2 and 4 and tricks 5 and 9 were swapped. The order is now 01 Rabbit · 02 Flowering Hat · 03 Floating Lady · 04 Substitution · 05 Still Rain · 06 Invisible Card · 07 Water Vault · 08 Mirror Split · 09 Golden Transfer · 10 Vanishing Vault (`RabbitTrickGame.PlayOrder`). Patience is 50 s for every act, and finishing act 10 plays a curtain call.
+
 The campaign now has ten playable acts. In **View Levels**, use **ACT II: TRICKS 06–10** to turn the programme page. Every act has its own playable demonstration and a different stage set. The existing five acts remain Act I.
 
 All player-facing text is English. A/D moves the magician, W/S moves smoothly in depth, arrows move the selected hand, F switches hands, and E grabs or releases the selected hand. Keep one hand gripping, switch with F, and use the other hand for a second control. P opens the pause menu, which includes restart, demonstration, settings, main menu, and quit. Each act starts with its looping how-to demonstration; after the first three seconds, Space or Enter starts normal play.
@@ -42,7 +44,7 @@ This is a game apparatus with a fictional hidden transfer. Its controls and timi
 
 Moving a visible blade through an unaligned image reveals the illusion. Untuning a mirror while the blade remains inside also fails. Closing the veil and moving a control early is possible, but it does not replace the witnessed proofs.
 
-## 09 — The Still Rain
+## 05 — The Still Rain (moved to Act I)
 
 **Set:** a rain-dark rooftop, skyline, projector, pump console, water nozzle, and catch basin.
 

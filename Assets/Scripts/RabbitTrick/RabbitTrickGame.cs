@@ -20,7 +20,15 @@ namespace Sleight.RabbitTrick
         public const int LevelCount = 10;
         readonly StageTrick[] tricks = { null, new TrunkTrick(), new LevitationTrick(), new DoveHatTrick(), new DepthTransferTrick(),
             new PalmCardTrick(), new WaterEscapeTrick(), new MirrorBladeTrick(), new StrobeRainTrick(), new VaultRainTrick() };
-        static readonly float[] PatienceByLevel = { 65f, 70f, 100f, 100f, 120f, 120f, 140f, 140f, 120f, 160f };
+        // 每一关观众耐心都是 50 秒（团队决定）
+        static readonly float[] PatienceByLevel = { 50f, 50f, 50f, 50f, 50f, 50f, 50f, 50f, 50f, 50f };
+
+        // 出场顺序：第 n 关（Level = n-1）演的是 tricks 里的第 PlayOrder[n-1] 个魔术。
+        // 交换了第 2 / 4 关（换人柜 ↔ 开花礼帽）和第 5 / 9 关（金球穿越 ↔ 静止之雨）。
+        // 和魔术本身绑定的东西（道具、灯光参数、配乐、关卡列表的名字）都按 TrickId 取；关卡序号显示按 Level。
+        public static readonly int[] PlayOrder = { 0, 3, 2, 1, 8, 5, 6, 7, 4, 9 };
+        public int TrickId => PlayOrder[Mathf.Clamp(Level, 0, PlayOrder.Length - 1)];
+        public static int PositionOf(int trickId) => System.Array.IndexOf(PlayOrder, trickId);
         float rabbitLookTime;
         bool rabbitShown, rabbitLookAtDancer;
         // 追光偏向舞台某一段：(机会, 区间左, 区间右, 最短停留, 最长停留)。
@@ -28,7 +36,7 @@ namespace Sleight.RabbitTrick
         static readonly float[][] BiasByLevel = { new float[5], new[] { 0.6f, 1.4f, 3.0f, 3.5f, 5.5f }, new[] { 0.7f, 4.6f, 5.8f, 4.5f, 7f } };
         // 追光：停留最短 / 最长、移动最短 / 最长（秒），逐关更快
         static readonly Vector4[] PaceByLevel = { new Vector4(2.8f, 4.6f, 1.1f, 1.7f), new Vector4(2.2f, 3.6f, 0.9f, 1.4f), new Vector4(1.8f, 3.0f, 0.7f, 1.1f) };
-        public StageTrick Trick => tricks[Mathf.Clamp(Level, 0, tricks.Length - 1)];
+        public StageTrick Trick => tricks[TrickId];
         public string TrickName => Trick != null ? Trick.Name : "THE RABBIT FROM AN EMPTY BOX";
         public int Level { get; private set; }
         public float patienceSeconds = 50f;   // 观众的耐心：这么久还没完成魔术，就开始扔东西（每关开始时按 PatienceByLevel 重设）
@@ -106,7 +114,7 @@ namespace Sleight.RabbitTrick
             ResetTrick();
             InDemo = true;
             if (!looping) DemoAge = 0f;
-            Audience.Scripted = Level < 2;
+            Audience.Scripted = TrickId < 2;
             demo = new TrickDemo(this);
             if (Trick != null) Trick.AddDemo(demo);
             else demo = TrickDemo.Rabbit(this);
@@ -207,10 +215,11 @@ namespace Sleight.RabbitTrick
             Patience = 1f;
             Booed = false;
             patienceSeconds = PatienceByLevel[Mathf.Clamp(Level, 0, PatienceByLevel.Length - 1)];
-            var pace = PaceByLevel[Mathf.Clamp(Level, 0, PaceByLevel.Length - 1)];
-            Audience.SetBeam(Level == 2 || Level == 7 ? 1.95f : 1.45f, Level == 2 || Level == 7 ? 0.5f : 0.24f);
+            int id = TrickId;
+            var pace = PaceByLevel[Mathf.Clamp(id, 0, PaceByLevel.Length - 1)];
+            Audience.SetBeam(id == 2 || id == 7 ? 1.95f : 1.45f, id == 2 || id == 7 ? 0.5f : 0.24f);
             Audience.SetPace(pace.x, pace.y, pace.z, pace.w);
-            var bias = BiasByLevel[Mathf.Clamp(Level, 0, BiasByLevel.Length - 1)];
+            var bias = BiasByLevel[Mathf.Clamp(id, 0, BiasByLevel.Length - 1)];
             Audience.SetBias(bias[0], bias[1], bias[2], bias[3], bias[4]);
             Hands.ResetHands();
             // 第 2、3 关的道具在运行时才搭；编辑器里重建场景时不搭，免得存进场景、运行时又搭一份
@@ -220,13 +229,13 @@ namespace Sleight.RabbitTrick
                 {
                     if (tricks[i] == null) continue;
                     tricks[i].Attach(this);
-                    tricks[i].SetVisible(i == Level);
+                    tricks[i].SetVisible(i == TrickId);
                 }
                 Trick?.Reset();
             }
-            Audience.ResetLight(Level == 0 ? BoxX : Level == 1 || Level >= 5 ? Trick.StartLightX : Hands.BodyPosition.x);
-            if (view != null) { view.SetLevel(Level); view.Draw(this); }
-            Soundtrack?.PlayLevel(Level);
+            Audience.ResetLight(id == 0 ? BoxX : id == 1 || id >= 5 ? Trick.StartLightX : Hands.BodyPosition.x);
+            if (view != null) { view.SetLevel(id); view.Draw(this); }
+            Soundtrack?.PlayLevel(id);   // 配乐跟着魔术走
         }
 
         void Update()
@@ -258,7 +267,8 @@ namespace Sleight.RabbitTrick
             {
                 ResultAge += dt;
                 if (IsFinished) Audience.Tick(dt);
-                if (IsFinished && Curtains != null && ResultAge >= curtainDelay) StartCoroutine(NextLevel());
+                if (IsFinished && Curtains != null && ResultAge >= curtainDelay)
+                    StartCoroutine(Level + 1 >= LevelCount ? CurtainCall() : NextLevel());   // 最后一关演完：谢幕
             }
             else
             {
@@ -305,6 +315,82 @@ namespace Sleight.RabbitTrick
             Audience.Follow(rabbitLookAtDancer ? 8.25f : BoxX, 6f, rabbitLookAtDancer ? "JUMPING DECOY" : "MAGIC BOX");
         }
 
+        // 通关最后一关后的谢幕：观众欢呼、追光照着魔术师，他走到舞台中央向观众鞠躬，
+        // 天上飘下彩带；然后一道新的正面大幕从上往下缓缓落下（约 3.5 秒），画面渐渐黑掉，回到主菜单。
+        public bool InFinale { get; private set; }
+        IEnumerator CurtainCall()
+        {
+            ChangingLevel = true;
+            InFinale = true;
+            for (int i = 0; i < 2; i++) { Hands.Hands[i].holding = HandItem.None; Hands.Hands[i].custom = -1; Hands.Hands[i].gripping = false; }
+            Soundtrack?.PlayApplause();
+
+            // 走到舞台中央、最前面
+            for (float t = 0f; t < 6f; t += Time.deltaTime)
+            {
+                var body = Hands.BodyPosition;
+                var to = new Vector2(5f - body.x, DualHandController.FrontY - body.y);
+                if (to.magnitude < 0.02f) break;
+                float step = 1.6f * Time.deltaTime;
+                Hands.MoveBody(this, new Vector2(Mathf.Clamp(to.x, -step, step), Mathf.Clamp(to.y / 0.55f, -step, step)));
+                Audience.Follow(Hands.BodyPosition.x, 6f, "THE MAGICIAN");
+                RestHands(0f);
+                yield return null;
+            }
+
+            // 鞠躬（彩带同时开始飘）
+            view.FinaleRibbonTime = 0f;
+            for (float t = 0f; t < 2.4f; t += Time.deltaTime)
+            {
+                view.FinaleRibbonTime += Time.deltaTime;
+                view.FinaleBow = t < 0.7f ? t / 0.7f : t < 1.6f ? 1f : 1f - (t - 1.6f) / 0.8f;
+                RestHands(view.FinaleBow);
+                Audience.Follow(Hands.BodyPosition.x, 6f, "THE MAGICIAN");
+                yield return null;
+            }
+            view.FinaleBow = 0f;
+
+            // 大幕落下（3.5 秒），彩带继续飘
+            for (float t = 0f; t < 3.5f; t += Time.deltaTime)
+            {
+                view.FinaleRibbonTime += Time.deltaTime;
+                view.FinaleCurtain = t / 3.5f;
+                RestHands(0f);
+                yield return null;
+            }
+            view.FinaleCurtain = 1f;
+            yield return new WaitForSeconds(0.6f);
+
+            // 渐渐黑屏，回到主菜单
+            for (float t = 0f; t < 1.5f; t += Time.deltaTime)
+            {
+                view.FinaleFade = t / 1.5f;
+                yield return null;
+            }
+            view.FinaleFade = 1f;
+            view.ResetFinale();
+            InFinale = false;
+            ChangingLevel = false;
+            LoadLevel(0);
+            Menu?.ShowHome();   // ShowHome 会停掉所有协程，所以放在最后
+        }
+
+        // 谢幕时两只手的位置：平时垂在身体两侧；鞠躬时一只手按在胸前，另一只手往外展开
+        void RestHands(float bow)
+        {
+            var feet = Hands.BodyPosition;
+            float face = view.FacingLeft ? -1f : 1f;
+            var restBack = feet + new Vector2(-0.45f * face, 1.0f);
+            var restFront = feet + new Vector2(0.45f * face, 1.0f);
+            var bowChest = feet + new Vector2(0.12f * face, 1.55f);
+            var bowOut = feet + new Vector2(-0.85f * face, 1.25f);
+            var a = view.Bowed(Vector2.Lerp(restBack, bowOut, bow));
+            var b = view.Bowed(Vector2.Lerp(restFront, bowChest, bow));
+            int back = view.FacingLeft ? 1 : 0;
+            Hands.Hands[back].position = a;
+            Hands.Hands[1 - back].position = b;
+        }
+
         // 过关：两侧大幕合拢 → 停一下 → 在幕后换到下一关 → 拉开。
         IEnumerator NextLevel()
         {
@@ -336,7 +422,7 @@ namespace Sleight.RabbitTrick
         public void DebugWinLevel()
         {
             if (ChangingLevel || IsFinished) return;
-            StartCoroutine(NextLevel());
+            StartCoroutine(Level + 1 >= LevelCount ? CurtainCall() : NextLevel());
         }
 
         public void Evaluate(float dt)

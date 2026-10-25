@@ -11,6 +11,7 @@ namespace Sleight.RabbitTrick
         readonly LooseProp gold = new LooseProp { shape = new Rect(-0.32f, 0, 0.64f, 0.5f) };
         Transform vault, doorT, weightT, goldT, balanceLamp, turnMark;
         Transform[] bills;
+        Transform guideArrow; SpriteRenderer guideGlow;
         float open, blower, turn, lastTurn, distraction, proof, reveal, clock;
         public bool Balanced => weight.inside && gold.inside;
         public bool Flipped => turn >= 0.98f;
@@ -56,7 +57,8 @@ namespace Sleight.RabbitTrick
             { Expose("The real gold was seen outside its chamber. Keep it behind the vault or in the wings."); return; }
             if (Step == 0)
             {
-                proof = !Flipped && gold.inside && open > 0.9f && ViewClear && Lit(GoldSlot) ? proof + dt : 0;
+                // 只要门帘拉开（金匣子在灯下露出来）进度就涨，魔术师站在前面挡着也算
+                proof = !Flipped && gold.inside && open > 0.9f && Lit(GoldSlot) ? proof + dt : 0;
                 StepProgress = Mathf.Clamp01(proof / 0.8f);
                 if (proof >= 0.8f) { Step = 1; StepProgress = 0; }
             }
@@ -113,6 +115,41 @@ namespace Sleight.RabbitTrick
             Lever(Blower, new Vector2(8f, 2f), Vector2.up * 0.35f, Vector2.up, () => blower, v => blower = v);
             Lever(Wheel, new Vector2(6.6f, 2.1f), Vector2.right * 0.3f, Vector2.right, () => turn, v => turn = v, 1f);
             Prop(WeightId, weight); Prop(GoldId, gold);
+            BuildGuideArrow();
+        }
+
+        // 第一步完成后的指引：先在最左边的黄铜配重上方冒白光的箭头上下浮动；
+        // 拿起配重后，箭头换到它该放的天平托盘上方。两处不会同时出现，配重放好就消失。
+        void BuildGuideArrow()
+        {
+            guideArrow = view.Group("GuideArrow", root, Vector2.zero);
+            var white = new Color(1f, 1f, 1f, 0.95f);
+            guideGlow = view.GlowAt("GuideGlow", guideArrow, new Vector2(0, 0.1f), 0.9f, new Color(1f, 1f, 1f, 0.35f), 0);
+            view.Rect("GuideShaft", guideArrow, new Vector2(0, 0.22f), new Vector2(0.09f, 0.42f), white, 1);
+            var left = view.Rect("GuideHeadL", guideArrow, new Vector2(-0.075f, -0.02f), new Vector2(0.09f, 0.26f), white, 1);
+            left.transform.localRotation = Quaternion.Euler(0, 0, 40);
+            var right = view.Rect("GuideHeadR", guideArrow, new Vector2(0.075f, -0.02f), new Vector2(0.09f, 0.26f), white, 1);
+            right.transform.localRotation = Quaternion.Euler(0, 0, -40);
+            foreach (var sr in guideArrow.GetComponentsInChildren<SpriteRenderer>(true)) sr.sharedMaterial = view.overlayMaterial;
+            guideArrow.gameObject.SetActive(false);
+        }
+
+        void DrawGuideArrow()
+        {
+            bool show = Step == 1 && !weight.inside && !Failed;
+            guideArrow.gameObject.SetActive(show);
+            if (!show) return;
+            // 箭头尖端对准：没拿起时是配重顶上，拿起后是托盘上方
+            Vector2 tip = weight.Held ? new Vector2(WeightSlot.x, 1.85f) : weight.position + new Vector2(0, weight.shape.yMax + 0.12f);
+            float bob = Mathf.Sin((Application.isPlaying ? Time.time : clock) * 4f) * 0.1f;
+            guideArrow.position = new Vector3(tip.x, tip.y + 0.18f + bob, -0.3f);
+            if (guideGlow != null)
+            {
+                var c = guideGlow.color;
+                c.a = 0.25f + 0.2f * (0.5f + 0.5f * Mathf.Sin((Application.isPlaying ? Time.time : clock) * 6f));
+                guideGlow.color = c;
+            }
+            StageDepth.Foreground(guideArrow, 50);
         }
         public override void Draw()
         {
@@ -136,6 +173,7 @@ namespace Sleight.RabbitTrick
                 bills[i].localRotation = Quaternion.Euler(0, 0, t * 360 + i * 20); StageDepth.Set(bills[i], 0.05f, 10);
             }
             DrawControls();
+            DrawGuideArrow();
         }
     }
 }

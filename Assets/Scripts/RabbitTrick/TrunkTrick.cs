@@ -441,6 +441,7 @@ namespace Sleight.RabbitTrick
                 ballerinaSpin.localScale = new Vector3(Mathf.Sign(spin) * Mathf.Max(0.25f, Mathf.Abs(spin)), 1f, 1f);
                 float hop = dancing ? Mathf.Abs(Mathf.Sin(t * 3.5f)) * 0.06f : Mathf.Abs(Mathf.Sin(t * 9f)) * 0.025f;
                 ballerina.position = new Vector3(BalletX, Floor + hop, -0.2f);
+                StageDepth.Set(ballerina, 0f, 60);   // 她在舞台最前沿跳，不会被柜子和帘子挡住
             }
 
             hatchPivot.localRotation = Quaternion.Euler(0, 0, hatch * HatchMaxAngle);

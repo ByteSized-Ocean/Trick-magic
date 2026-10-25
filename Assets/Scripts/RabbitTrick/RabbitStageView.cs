@@ -68,6 +68,8 @@ namespace Sleight.RabbitTrick
         bool facingLeft, hasLastBody;
         Vector3 bodyOffset;   // 走路起伏，身体、肩膀、腿共用
         const float HipHeight = 0.78f, Thigh = 0.41f, Shin = 0.41f, Stride = 0.62f;
+        const float DepthStrideScale = 2.6f;   // 纵深 1 单位（屏幕上）≈ 走 2.6 单位的步数
+        float sidewaysShare = 1f;
         readonly Color cream = new Color32(242, 222, 188, 255);
         readonly Color teal = new Color32(100, 220, 199, 255);
         readonly Color gold = new Color32(210, 156, 79, 255);
@@ -217,6 +219,14 @@ namespace Sleight.RabbitTrick
                 fg.transform.localScale = new Vector3(fg.transform.localScale.x, fg.transform.localScale.y * 0.5f, 1f);
                 Disc("Footlight", world, p, new Vector2(0.14f, 0.08f), Hex(0xF3D293), -21, true);
             }
+        }
+
+        // 关卡里用的柔光（挂在指定的父物体下）
+        public SpriteRenderer GlowAt(string name, Transform parent, Vector2 position, float size, Color color, int order)
+        {
+            var sr = Sprite(name, parent, glowSprite != null ? glowSprite : circle, position, new Vector2(size, size), color, order);
+            sr.sharedMaterial = overlayMaterial;
+            return sr;
         }
 
         SpriteRenderer Glow(string name, Vector2 position, float size, Color color, int order)
@@ -451,15 +461,19 @@ namespace Sleight.RabbitTrick
                 handRings[i].transform.localScale = new Vector3(0.53f / circle.bounds.size.x, 0.53f / circle.bounds.size.y, 1) * pulse;
                 Vector3 shoulder = game.Hands.Shoulder(i);
                 // 袖子从身体真正的肩膀出发：跟着走路起伏一起动，否则胳膊和身体会脱开
-                arms[i].SetPosition(0, shoulder + bodyOffset);
-                arms[i].SetPosition(1, (Vector3)game.Hands.Elbow(i) + bodyOffset * 0.5f);
+                Vector3 shoulderAt = Bowed(shoulder + bodyOffset);
+                Vector3 elbowAt = FinaleBow > 0.001f
+                    ? Vector3.Lerp(shoulderAt, (Vector3)hand, 0.5f) + Vector3.down * 0.1f   // 鞠躬时手臂自然垂向身前
+                    : (Vector3)game.Hands.Elbow(i) + bodyOffset * 0.5f;
+                arms[i].SetPosition(0, shoulderAt);
+                arms[i].SetPosition(1, elbowAt);
                 arms[i].SetPosition(2, hand);
                 arms[i].sortingOrder = 25;
                 arms[i].transform.localPosition = new Vector3(0, 0, game.Hands.Depth * 1.5f - 0.2f);
                 StageDepth.Set(arms[i].transform, game.Hands.Depth, 1);
                 StageDepth.Set(gloves[i], game.Hands.Depth, 4);
             }
-            float dance = game.Level == 0 && game.StepIndex > 0 ? Mathf.Sin(Time.time * 10) : 0;
+            float dance = game.TrickId == 0 && game.StepIndex > 0 ? Mathf.Sin(Time.time * 10) : 0;
             dancer.localRotation = Quaternion.identity;
             dancer.position = new Vector3(8.25f, 1.4f + Mathf.Abs(dance) * 0.12f, -0.35f);
             dancerBase.position = new Vector3(game.Audience.DancerX, 1.3f, -0.35f);
@@ -474,6 +488,7 @@ namespace Sleight.RabbitTrick
             DrawAudience(game.Audience.X);
             DrawCheering(game);
             DrawTorches();
+            DrawFinale();
             game.Trick?.Draw();
             UpdateHud(game);
         }
@@ -486,10 +501,20 @@ namespace Sleight.RabbitTrick
             if (!hasLastBody) { lastBody = body; hasLastBody = true; }
             Vector2 delta = body - lastBody;
             lastBody = body;
-            float speed = delta.magnitude / dt;
+            // 前后（W / S）走时屏幕上的位移很小，如果直接按位移推进步伐，腿会慢吞吞地一下一下挪。
+            // 这里把纵深位移换算成"走了多少步"，单按 W 或 S 时步频和左右走一样；
+            // 同时纵深方向走的时候腿少往两边甩、多往上抬，像朝台里 / 台口迈步。
+            float planar = Mathf.Abs(delta.x);
+            float depthTravel = Mathf.Abs(delta.y) * DepthStrideScale;
+            float travel = Mathf.Sqrt(planar * planar + depthTravel * depthTravel);
+            float speed = travel / dt;
             walkBlend = Mathf.MoveTowards(walkBlend, speed > 0.15f ? 1f : 0f, dt * 7f);
             if (Mathf.Abs(delta.x) > 0.0004f) facingLeft = delta.x < 0;
-            walkPhase += delta.magnitude / Stride * Mathf.PI * 2f;
+            walkPhase += travel / Stride * Mathf.PI * 2f;
+            float sideways = travel > 0.00001f ? planar / travel : sidewaysShare;
+            sidewaysShare = Mathf.MoveTowards(sidewaysShare, sideways, dt * 6f);
+            float swingAmount = Mathf.Lerp(0.35f, 1f, sidewaysShare);
+            float liftAmount = Mathf.Lerp(1.35f, 1f, sidewaysShare);
             if (walkBlend <= 0f) walkPhase = Mathf.Lerp(walkPhase, Mathf.Round(walkPhase / Mathf.PI) * Mathf.PI, dt * 8f);
 
             float bob = Mathf.Abs(Mathf.Sin(walkPhase)) * 0.04f * walkBlend;
@@ -499,6 +524,10 @@ namespace Sleight.RabbitTrick
             bodyOffset = new Vector3(0f, bob + breathe, 0f);
             float depth = Mathf.InverseLerp(DualHandController.FrontY, DualHandController.BackY, body.y);
             magician.position = new Vector3(body.x, body.y, depth * 1.5f - 0.2f) + bodyOffset;
+            // 谢幕鞠躬：整个人绕脚底往前弯腰（朝着面向的方向）
+            bowPivot = body;
+            bowAngle = -(facingLeft ? -1f : 1f) * 34f * Mathf.SmoothStep(0f, 1f, FinaleBow);
+            magician.localRotation = Quaternion.Euler(0, 0, bowAngle);
             int baseOrder = Mathf.RoundToInt(Mathf.Lerp(24f, 10f, depth));
             sr.sortingOrder = baseOrder;
 
@@ -506,10 +535,10 @@ namespace Sleight.RabbitTrick
             for (int i = 0; i < 2; i++)
             {
                 float ph = walkPhase + i * Mathf.PI;
-                Vector2 hip = new Vector2(body.x + face * (i == 0 ? -0.04f : 0.05f), body.y + HipHeight + bob);
+                Vector2 hip = Bowed(new Vector2(body.x + face * (i == 0 ? -0.04f : 0.05f), body.y + HipHeight + bob));
                 float swing = Mathf.Sin(ph);
-                Vector2 foot = new Vector2(hip.x + face * swing * 0.24f * walkBlend,
-                    body.y + 0.05f + Mathf.Max(0f, Mathf.Cos(ph)) * 0.11f * walkBlend);
+                Vector2 foot = new Vector2(hip.x + face * swing * 0.24f * swingAmount * walkBlend,
+                    body.y + 0.05f + Mathf.Max(0f, Mathf.Cos(ph)) * 0.11f * liftAmount * walkBlend);
                 Vector2 knee = Knee(hip, foot, face);
                 legs[i].SetPosition(0, hip);
                 legs[i].SetPosition(1, knee);
@@ -803,6 +832,130 @@ namespace Sleight.RabbitTrick
             StageDepth.Set(rabbit, game.Rules.RabbitInside ? 0.21f : game.RabbitDepth, 3);
         }
 
+        // ------------------------------------------------------------ 谢幕
+        // 通关最后一关后的谢幕：RabbitTrickGame 依次推这几个量，这里负责画。
+        public float FinaleBow;       // 0..1 鞠躬幅度
+        public float FinaleCurtain;   // 0..1 大幕从上往下落的进度
+        public float FinaleFade;      // 0..1 黑屏
+        public float FinaleRibbonTime = -1f;   // 彩带开始飘落后的秒数，-1 = 没有彩带
+        Vector2 bowPivot;
+        public bool FacingLeft => facingLeft;
+        float bowAngle;
+        Transform finaleCurtain;
+        Transform[] curtainFolds;
+        Transform[] ribbons;
+        float[] ribbonSeed;
+        Image finaleFade;
+        readonly System.Collections.Generic.List<GameObject> hiddenHud = new System.Collections.Generic.List<GameObject>();
+
+        // 鞠躬时身上的点（肩、髋）跟着身体一起绕脚底转
+        public Vector2 Bowed(Vector2 p)
+        {
+            if (Mathf.Abs(bowAngle) < 0.01f) return p;
+            return bowPivot + (Vector2)(Quaternion.Euler(0, 0, bowAngle) * (p - bowPivot));
+        }
+        Vector3 Bowed(Vector3 p) { var b = Bowed((Vector2)p); return new Vector3(b.x, b.y, p.z); }
+
+        public void ResetFinale()
+        {
+            FinaleBow = FinaleCurtain = FinaleFade = 0f;
+            FinaleRibbonTime = -1f;
+            DrawFinale();
+        }
+
+        void BuildFinale()
+        {
+            // 新画的一道正面大幕：深红丝绒竖褶、顶上金色扇形垂边、底边金流苏，和舞台两侧的幕布同一套配色
+            finaleCurtain = Group("FinaleMainCurtain", world, new Vector2(5f, 12f));
+            const int folds = 26;
+            curtainFolds = new Transform[folds];
+            float width = 10.8f / folds;
+            for (int i = 0; i < folds; i++)
+            {
+                var fold = Group("Fold", finaleCurtain, new Vector2(-5.4f + (i + 0.5f) * width, 0f));
+                Color c = i % 3 == 0 ? Hex(0x8A3350) : i % 3 == 1 ? Hex(0x772A43) : Hex(0x562034);
+                Rect("Velvet", fold, new Vector2(0, -2.55f), new Vector2(width * 1.08f, 5.1f), c, 42);
+                Rect("Highlight", fold, new Vector2(-width * 0.25f, -2.55f), new Vector2(width * 0.12f, 5.1f), Hex(0x9E4060), 42);
+                Rect("Fringe", fold, new Vector2(0, -5.12f), new Vector2(width * 1.08f, 0.09f), gold, 43);
+                Disc("Tassel", fold, new Vector2(0, -5.22f), new Vector2(0.09f, 0.14f), gold, 43);
+                curtainFolds[i] = fold;
+            }
+            Rect("TopBand", finaleCurtain, new Vector2(0, -0.12f), new Vector2(10.8f, 0.3f), Hex(0x45142A), 44);
+            for (int i = 0; i < 24; i++)
+                Disc("Scallop", finaleCurtain, new Vector2(-5.4f + i * 0.47f, -0.3f), new Vector2(0.5f, 0.22f), Hex(0x6F2841), 44);
+            Rect("TopTrim", finaleCurtain, new Vector2(0, -0.02f), new Vector2(10.8f, 0.05f), gold, 44);
+            finaleCurtain.gameObject.SetActive(false);
+
+            // 彩带：一条条细长的彩色纸带，从天上飘下来，边落边转边左右摆
+            var colors = new[] { Hex(0xF2A7C0), Hex(0xC8962E), Hex(0x64DCC7), Hex(0xF2DEBC), Hex(0xB55061), Hex(0x8FB3E0) };
+            ribbons = new Transform[90];
+            ribbonSeed = new float[ribbons.Length];
+            var rng = new System.Random(23);
+            for (int i = 0; i < ribbons.Length; i++)
+            {
+                ribbons[i] = Rect("Ribbon", world, Vector2.zero, new Vector2(0.045f, 0.2f + 0.12f * (float)rng.NextDouble()), colors[i % colors.Length], 60).transform;
+                ribbonSeed[i] = (float)rng.NextDouble();
+                ribbons[i].gameObject.SetActive(false);
+            }
+
+            finaleFade = Panel("FinaleFade", HudCanvas, Vector2.zero, new Vector2(1600, 900), new Color(0, 0, 0, 0));
+            var rt = finaleFade.rectTransform;
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = rt.offsetMax = Vector2.zero;
+            finaleFade.transform.SetAsLastSibling();
+        }
+
+        void DrawFinale()
+        {
+            if (!Application.isPlaying) return;
+            bool active = FinaleCurtain > 0f || FinaleFade > 0f || FinaleRibbonTime >= 0f;
+            if (finaleCurtain == null) { if (!active) return; BuildFinale(); }
+
+            // 大幕：缓慢落下，最后轻轻弹一下再停稳；下摆按下落速度往后飘
+            float k = Mathf.Clamp01(FinaleCurtain);
+            float eased = k < 0.85f ? Mathf.SmoothStep(0f, 0.97f, k / 0.85f) : 0.97f + 0.03f * Mathf.Sin((k - 0.85f) / 0.15f * Mathf.PI * 0.5f);
+            float topDown = 5.75f, topUp = 5.75f + 5.4f;
+            float curtainBottom = Mathf.Lerp(topUp, topDown, eased) - 5.1f;
+            finaleCurtain.gameObject.SetActive(k > 0f);
+            finaleCurtain.position = new Vector3(5f, Mathf.Lerp(topUp, topDown, eased), -0.9f);
+            float sway = k > 0f && k < 1f ? Mathf.Sin(k * Mathf.PI) : 0f;
+            for (int i = 0; i < curtainFolds.Length; i++)
+                curtainFolds[i].localRotation = Quaternion.Euler(0, 0, Mathf.Sin(Time.time * 2.3f + i * 0.7f) * 1.6f * sway);
+
+            for (int i = 0; i < ribbons.Length; i++)
+            {
+                float start = ribbonSeed[i] * 2.6f;
+                float t = FinaleRibbonTime - start;
+                bool on = FinaleRibbonTime >= 0f && t >= 0f;
+                // 彩带落在舞台上：大幕落过它的高度以后，它就在幕后面了，不再画
+                float yNow = 6.1f - Mathf.Max(0f, t) * (0.7f + 0.5f * Mathf.Repeat(ribbonSeed[i] * 7.3f, 1f));
+                if (k > 0f && Mathf.Max(yNow, 1.0f) > curtainBottom) on = false;
+                ribbons[i].gameObject.SetActive(on);
+                if (!on) continue;
+                float fall = 0.7f + 0.5f * Mathf.Repeat(ribbonSeed[i] * 7.3f, 1f);
+                float y = 6.1f - t * fall;
+                if (y < 1.0f) y = 1.0f;   // 落到台面就停在那里
+                float x = 0.3f + Mathf.Repeat(ribbonSeed[i] * 13.7f, 1f) * 9.4f + Mathf.Sin(t * 2.2f + i) * 0.25f;
+                ribbons[i].position = new Vector3(x, y, -0.95f);
+                ribbons[i].localRotation = Quaternion.Euler(0, 0, y > 1.0f ? Mathf.Sin(t * 4f + i) * 70f : 90f);
+            }
+
+            // 谢幕时把关卡界面（提示、步骤、耐心条、按钮）收起来，画面只留舞台
+            bool hideHud = FinaleCurtain > 0f || FinaleBow > 0f || FinaleRibbonTime >= 0f;
+            var canvas = HudCanvas;
+            if (canvas != null)
+                foreach (Transform child in canvas)
+                    if (child != finaleFade.transform && child.name != "DemoTelevision")
+                    {
+                        if (hideHud && child.gameObject.activeSelf) { child.gameObject.SetActive(false); hiddenHud.Add(child.gameObject); }
+                    }
+            if (!hideHud && hiddenHud.Count > 0) { foreach (var go in hiddenHud) if (go != null) go.SetActive(true); hiddenHud.Clear(); }
+
+            var c = finaleFade.color;
+            c.a = Mathf.Clamp01(FinaleFade);
+            finaleFade.color = c;
+            finaleFade.raycastTarget = false;
+        }
+
         static Vector2 Knee(Vector2 hip, Vector2 foot, float face)
         {
             Vector2 d = foot - hip;
@@ -836,7 +989,7 @@ namespace Sleight.RabbitTrick
             if (mechanicLabel != null)
             {
                 mechanicLabel.text = game.Trick?.Status ?? "";
-                mechanicLabel.gameObject.SetActive(mechanicLabel.text.Length > 0);
+                mechanicLabel.gameObject.SetActive(mechanicLabel.text.Length > 0 && !game.InFinale);
             }
             string[] names = game.StepNames;
             int step = game.StepIndex;

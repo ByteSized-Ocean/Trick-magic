@@ -47,7 +47,7 @@ namespace Sleight.RabbitTrick.EditorTools
         static void Expect(bool value, string message)
         { if (!value) throw new InvalidOperationException("[FiveTricks] " + message); }
         static void Load(RabbitTrickGame game, int level)
-        { game.JumpToLevel(level); if (game.InDemo) game.EndDemo(); game.Audience.Scripted = false; }
+        { game.JumpToLevel(RabbitTrickGame.PositionOf(level)); if (game.InDemo) game.EndDemo(); game.Audience.Scripted = false; }   // level 指魔术编号（tricks 下标），按出场顺序找到对应关卡
         static void CheckRabbitFocus(RabbitTrickGame game)
         {
             Load(game, 0);
