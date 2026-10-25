@@ -78,7 +78,11 @@ namespace Sleight.RabbitTrick.EditorTools
                         Click(game, "ViewLevels"); Next(2); break;
                     case 2:
                         Expect(game.Menu.Page == StageMenu.ScreenPage.Levels, "Level browser must open."); Save("LevelSelect");
-                        Click(game, "Level5"); Expect(game.Level == 4 && game.InDemo && !game.CanSkipDemo && !game.Menu.BlocksGameplay, "Level card must start with its demo, unskippable for the first 3 seconds.");
+                        Click(game, "NextActs"); Next(18); break;
+                    case 18:
+                        foreach (string id in new[] { "Level6", "Level7", "Level8", "Level9", "Level10" }) Expect(game.Menu.FindButton(id) != null, "Missing act II button: " + id);
+                        Save("LevelSelect-ActII");
+                        Click(game, "Level10"); Expect(game.Level == 9 && game.InDemo && !game.CanSkipDemo && !game.Menu.BlocksGameplay, "Level card must start with its demo, unskippable for the first 3 seconds.");
                         game.EndDemo();
                         Camera.main.targetTexture = target; savedX = game.Hands.BodyPosition.x; held = new[] { Key.D }; Next(3); break;
                     case 3:

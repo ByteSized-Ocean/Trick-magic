@@ -28,7 +28,9 @@ namespace Sleight.RabbitTrick
                 game.Hands.Hands[i].gripping = game.Hands.Hands[i].holding != HandItem.None;
             stepTime += dt;
             // 某一步卡住（够不着之类）就跳过，演示不会停在半路
-            if (steps[index](dt) || stepTime > StepTimeout) { index++; stepTime = 0f; }
+            bool done = steps[index](dt);
+            if (!done && stepTime > StepTimeout) Debug.LogWarning("[TrickDemo] Timed out action " + index + ": " + Caption);
+            if (done || stepTime > StepTimeout) { index++; stepTime = 0f; }
         }
 
         // ------------------------------------------------------------ 脚本动作

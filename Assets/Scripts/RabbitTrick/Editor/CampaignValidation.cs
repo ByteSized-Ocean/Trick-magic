@@ -31,6 +31,7 @@ namespace Sleight.RabbitTrick.EditorTools
                 CheckScreenGeometry(game); report.AppendLine("PASS fifth trick: true depth occlusion; standing at back without cover is exposed.");
                 CheckFreeProps(game); report.AppendLine("PASS unrestricted props: entire hat brim, pre-step dove, flowers, golden orb; rabbit insertion is not step-locked.");
                 CheckSorting(game); report.AppendLine("PASS depth rendering: body, arms, hands, held orb, both screen layers; order restores when changing levels.");
+                CheckGrandIllusions(game); report.AppendLine("PASS new-act failures: uncovered card, visible hatch, air timeout, unaligned blade, pump overheat, dark presentation, unbalanced or visible vault rotation.");
             }
             finally
             {
@@ -39,6 +40,7 @@ namespace Sleight.RabbitTrick.EditorTools
             }
             Directory.CreateDirectory("Logs");
             File.WriteAllText("Logs/FiveTrickValidation.txt", report.ToString());
+            File.WriteAllText("Logs/TenActValidation.txt", report.ToString());
             Debug.Log("[FiveTricks] Campaign validation\n" + report);
             if (!good) throw new InvalidOperationException("One or more five-trick demos failed.\n" + report);
         }
@@ -218,6 +220,60 @@ namespace Sleight.RabbitTrick.EditorTools
             Load(game, 0); game.view.Draw(game);
             Expect(game.view.World.Find("LeftHand").GetComponent<UnityEngine.Rendering.SortingGroup>().sortingOrder == StageDepth.Order(0) + 4,
                 "Returning from fifth trick must reset glove depth order.");
+        }
+        static void Position(RabbitTrickGame game, float x) => game.Hands.MoveBody(game, Vector2.right * (x - game.Hands.BodyPosition.x));
+        static void Control(RabbitTrickGame game, int id, int hand, Vector2 drag, bool release = true)
+        {
+            var trick = (ApparatusTrick)game.Trick;
+            game.Hands.SelectHand(hand); game.Hands.Move(game, trick.ControlPoint(id) - game.Hands.Selected.position); game.Hands.Grab(game);
+            Expect(game.Hands.Selected.holding == HandItem.Custom && game.Hands.Selected.custom == id, "New control must be physically reachable before step unlock: " + id);
+            game.Hands.Move(game, drag); if (release) game.Hands.Release(game);
+        }
+        static void CheckGrandIllusions(RabbitTrickGame game)
+        {
+            Load(game, 5); Position(game, 6.5f);
+            Expect(!((PalmCardTrick)game.Trick).FrameVisible, "Standing in front of the card blocks its reveal.");
+            SetDepth(game, 0.8f);
+            Expect(((PalmCardTrick)game.Trick).FrameVisible, "A performer behind the actual frame plane must not falsely block it.");
+            Load(game, 9); Position(game, 5.6f);
+            Expect(!((VaultRainTrick)game.Trick).ViewClear, "Standing in front of the gold blocks the opening proof.");
+            SetDepth(game, 0.8f);
+            Expect(((VaultRainTrick)game.Trick).ViewClear, "A performer behind the gold plane must not block the view.");
+            for (int covered = 0; covered < 2; covered++)
+            {
+                Load(game, 5);
+                var trick = (PalmCardTrick)game.Trick;
+                game.Hands.SelectHand(0); var hand = game.Hands.Selected;
+                hand.position = game.Hands.BodyPosition + new Vector2(0.1f, 1.1f);
+                trick.Card.position = hand.position - trick.Card.shape.center; trick.Card.Grab(0, hand.position);
+                hand.holding = HandItem.Custom; hand.custom = 100;
+                if (covered == 1) game.Hands.Hands[1].position = hand.position;
+                game.Audience.ResetLight(hand.position.x); trick.Tick(0.35f);
+                Expect(trick.Failed == (covered == 0), "Only a real second palm may hide the card in light.");
+            }
+            Load(game, 6); Position(game, 6.85f);
+            Control(game, 0, 1, Vector2.up * 0.7f); Control(game, 2, 1, Vector2.up * 0.7f); game.Trick.Tick(0.05f);
+            Expect(game.Trick.Failed, "Visible escape hatch must fail.");
+            Load(game, 6); Position(game, 6.85f); Control(game, 1, 0, Vector2.up * 0.35f, false);
+            for (int i = 0; i < 650 && !game.Trick.Failed; i++) game.Trick.Tick(0.05f);
+            Expect(game.Trick.Failed && ((WaterEscapeTrick)game.Trick).Air <= 0, "Air clock must be a real deadline.");
+            Load(game, 7); Position(game, 3.8f);
+            Control(game, 0, 1, Vector2.up * 0.7f); Control(game, 3, 1, Vector2.right * 0.2f); game.Trick.Tick(0.05f);
+            Expect(game.Trick.Failed, "An unaligned mirror cannot protect a blade pass.");
+            Load(game, 8); Position(game, 4.95f); Control(game, 0, 0, Vector2.up * 0.7f, false);
+            for (int i = 0; i < 65 && !game.Trick.Failed; i++) game.Trick.Tick(0.05f);
+            Expect(game.Trick.Failed, "Full pump pressure must overheat.");
+            Load(game, 8); Position(game, 4.95f); Control(game, 0, 0, Vector2.up * 0.525f, false);
+            game.Audience.ResetLight(0); game.Audience.Scripted = true;
+            for (int i = 0; i < 40; i++) game.Trick.Tick(0.05f);
+            Expect(!game.Trick.Failed && game.Trick.Step == 0 && game.Trick.StepProgress == 0, "Rain in darkness must not count as a performance.");
+            for (int balanced = 0; balanced < 2; balanced++)
+            {
+                Load(game, 9); Position(game, 6.4f);
+                if (balanced == 1) ((VaultRainTrick)game.Trick).Counterweight.inside = true;
+                Control(game, 2, 1, Vector2.right * 0.2f); game.Trick.Tick(0.05f);
+                Expect(game.Trick.Failed, "A vault rotation must fail if unbalanced OR seen by the audience.");
+            }
         }
     }
 }

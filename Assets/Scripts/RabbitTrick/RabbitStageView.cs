@@ -36,6 +36,7 @@ namespace Sleight.RabbitTrick
         [SerializeField] Image showProgress, distractionProgress, flash;
         [SerializeField] Image patienceFill, patienceBack;
         [SerializeField] Text stepsTitle;
+        [SerializeField] Text mechanicLabel;
         public Transform World => world;
         public Transform HudCanvas => hintLabel != null ? hintLabel.transform.parent : null;
         public Font HudFont => hintLabel != null ? hintLabel.font : interfaceFont;
@@ -348,7 +349,9 @@ namespace Sleight.RabbitTrick
             scaler.referenceResolution = new Vector2(1600, 900);
             scaler.matchWidthOrHeight = 0.5f;
             var parent = ui.transform;
-            Label("Title", parent, new Vector2(35, -24), new Vector2(470, 40), "SLEIGHT  /  THE RABBIT", 25, cream);
+            Label("Title", parent, new Vector2(35, -24), new Vector2(470, 40), "SLEIGHT  /  THE SHOW", 25, cream);
+            mechanicLabel = Label("ActMechanic", parent, new Vector2(35, -109), new Vector2(1050, 60), "", 18, teal);
+            mechanicLabel.resizeTextForBestFit = true; mechanicLabel.resizeTextMinSize = 14; mechanicLabel.resizeTextMaxSize = 18;
             handLabel = Label("ActiveHand", parent, new Vector2(35, -64), new Vector2(1000, 34), "LEFT HAND", 21, teal);
             var panel = Panel("Steps", parent, new Vector2(-445, -22), new Vector2(420, 210), new Color(0.07f, 0.055f, 0.11f, 0.93f), true);
             stepsTitle = Label("StepsTitle", panel.transform, new Vector2(20, -13), new Vector2(395, 30), "1st TRICK: THE RABBIT FROM AN EMPTY BOX", 17, gold);
@@ -830,6 +833,11 @@ namespace Sleight.RabbitTrick
 
         void UpdateHud(RabbitTrickGame game)
         {
+            if (mechanicLabel != null)
+            {
+                mechanicLabel.text = game.Trick?.Status ?? "";
+                mechanicLabel.gameObject.SetActive(mechanicLabel.text.Length > 0);
+            }
             string[] names = game.StepNames;
             int step = game.StepIndex;
             for (int i = 0; i < 3; i++)

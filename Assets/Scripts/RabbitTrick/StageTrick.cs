@@ -11,6 +11,7 @@ namespace Sleight.RabbitTrick
         public abstract string SuccessTitle { get; }    // 成功面板的大标题
         public abstract string[] StepNames { get; }     // 三步，带编号
         public virtual float StartLightX => 5f;
+        public virtual string Status => "";
 
         public int Step { get; protected set; }
         public bool Finished => Step >= StepNames.Length;
@@ -37,7 +38,13 @@ namespace Sleight.RabbitTrick
                 }
                 root = view.Group(GetType().Name, view.World, Vector2.zero);
                 Build();
-                foreach (Transform item in root) StageDepth.Set(item, 0.2f);
+                foreach (Transform item in root)
+                {
+                    if (item.name == "Scenery") continue;
+                    int detail = 0;
+                    foreach (var renderer in item.GetComponentsInChildren<Renderer>(true)) detail = Mathf.Max(detail, renderer.sortingOrder);
+                    StageDepth.Set(item, 0.2f, detail);
+                }
             }
         }
 

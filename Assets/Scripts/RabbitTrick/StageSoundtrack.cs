@@ -29,7 +29,8 @@ namespace Sleight.RabbitTrick
         public void PlayLevel(int level)
         {
             if (Music == null || Tracks == null) return;
-            var next = Tracks[Mathf.Clamp(level, 0, Tracks.Length - 1)];
+            int[] programme = { 0, 1, 2, 3, 4, 4, 2, 1, 3, 0 };
+            var next = Tracks[programme[Mathf.Clamp(level, 0, programme.Length - 1)]];
             if (Music.clip == next && Music.isPlaying) return;
             Music.clip = next; if (next != null) Music.Play();
         }

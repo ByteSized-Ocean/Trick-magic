@@ -100,8 +100,10 @@ namespace Sleight.RabbitTrick.EditorTools
                     Expect(game.Hands.Depth < stoppedDepth - 0.1f, "S must move continuously toward the front.");
                     held = Array.Empty<Key>();
                     Directory.CreateDirectory("Logs");
-                    File.WriteAllText("Logs/FiveTrickRuntime.txt", "PASS persisted five-level scene; five normal-player-loop screenshots; W/S intermediate depth, release-to-stop, return-to-front.\n");
-                    Debug.Log("[FiveTricks] NORMAL-FRAME FIVE LEVELS AND SMOOTH W/S VERIFIED");
+                    string report = "PASS persisted " + RabbitTrickGame.LevelCount + "-act scene; " + RabbitTrickGame.LevelCount + " normal-player-loop screenshots; W/S intermediate depth, release-to-stop, return-to-front.\n";
+                    File.WriteAllText("Logs/FiveTrickRuntime.txt", report);
+                    File.WriteAllText("Logs/TenActRuntime.txt", report);
+                    Debug.Log("[Campaign] NORMAL-FRAME TEN ACTS AND SMOOTH W/S VERIFIED");
                     Application.logMessageReceived -= CheckLog;
                     SessionState.SetBool(Flag + ".Pass", true);
                     Camera.main.targetTexture = null;

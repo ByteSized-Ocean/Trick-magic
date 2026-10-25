@@ -9,6 +9,7 @@ namespace Sleight.RabbitTrick
     {
         public RabbitTrickGame game;
         bool open;
+        Vector2 scroll;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         void Update()
@@ -22,9 +23,10 @@ namespace Sleight.RabbitTrick
             if (!open || game == null) return;
             float scale = Mathf.Max(1f, Screen.height / 720f);
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
-            GUILayout.BeginArea(new Rect(Screen.width / scale - 330f, 260f, 310f, 390f), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(Screen.width / scale - 330f, 180f, 310f, Mathf.Min(500f, Screen.height / scale - 200f)), GUI.skin.box);
             GUILayout.Label("DEBUG  (F10 to close)");
             GUILayout.Label("Now: " + Ordinal(game.Level + 1) + " TRICK  /  step " + (game.StepIndex + 1));
+            scroll = GUILayout.BeginScrollView(scroll);
             for (int i = 0; i < RabbitTrickGame.LevelCount; i++)
             {
                 if (GUILayout.Button("Jump to " + Ordinal(i + 1) + " trick", GUILayout.Height(28)))
@@ -33,6 +35,7 @@ namespace Sleight.RabbitTrick
             GUILayout.Space(6);
             if (GUILayout.Button("Win this trick (curtain call)", GUILayout.Height(28))) game.DebugWinLevel();
             if (GUILayout.Button("Restart this trick", GUILayout.Height(28))) game.ResetTrick();
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 #endif

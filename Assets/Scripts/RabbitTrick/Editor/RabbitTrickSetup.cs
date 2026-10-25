@@ -14,7 +14,7 @@ namespace Sleight.RabbitTrick.EditorTools
         const string ArtPath = "Assets/Art/RabbitTrick";
         const string ReportPath = "Logs/RabbitTrickValidation.txt";
 
-        [MenuItem("Sleight/兔子魔术/重建五关舞台场景")]
+        [MenuItem("Sleight/Stage Show/Rebuild Ten-Act Stage")]
         public static void FromMenu()
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
@@ -27,6 +27,16 @@ namespace Sleight.RabbitTrick.EditorTools
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 3 关")] static void Jump3() => Jump(2);
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 4 关")] static void Jump4() => Jump(3);
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 5 关")] static void Jump5() => Jump(4);
+        [MenuItem("Sleight/Stage Show/Debug/Jump to Trick 06")] static void Jump6() => Jump(5);
+        [MenuItem("Sleight/Stage Show/Debug/Jump to Trick 07")] static void Jump7() => Jump(6);
+        [MenuItem("Sleight/Stage Show/Debug/Jump to Trick 08")] static void Jump8() => Jump(7);
+        [MenuItem("Sleight/Stage Show/Debug/Jump to Trick 09")] static void Jump9() => Jump(8);
+        [MenuItem("Sleight/Stage Show/Debug/Jump to Trick 10")] static void Jump10() => Jump(9);
+        [MenuItem("Sleight/Stage Show/Debug/Jump to Trick 06", true)]
+        [MenuItem("Sleight/Stage Show/Debug/Jump to Trick 07", true)]
+        [MenuItem("Sleight/Stage Show/Debug/Jump to Trick 08", true)]
+        [MenuItem("Sleight/Stage Show/Debug/Jump to Trick 09", true)]
+        [MenuItem("Sleight/Stage Show/Debug/Jump to Trick 10", true)]
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 1 关", true)]
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 2 关", true)]
         [MenuItem("Sleight/兔子魔术/Debug/跳到第 3 关", true)]
@@ -35,7 +45,7 @@ namespace Sleight.RabbitTrick.EditorTools
         static bool CanJump() => Application.isPlaying;
 
         // 快进跑一遍三关的开场演示，确认每段都能把魔术演成功（批处理：-executeMethod ...ValidateDemos）
-        [MenuItem("Sleight/兔子魔术/Debug/验证五关演示（会重建场景）")]
+        [MenuItem("Sleight/Stage Show/Debug/Validate All Ten Demos (rebuilds scene)")]
         public static void ValidateDemos() => CampaignValidation.BuildAndValidate();
         static void Jump(int level)
         {
@@ -66,7 +76,7 @@ namespace Sleight.RabbitTrick.EditorTools
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color32(18, 14, 26, 255);
             camera.allowHDR = false;
-            var root = new GameObject("FiveTrickShow");
+            var root = new GameObject("TenTrickShow");
             var game = root.AddComponent<RabbitTrickGame>();
             var view = root.AddComponent<RabbitStageView>();
             var light = root.AddComponent<RandomAudienceLight>();

@@ -17,6 +17,7 @@ namespace Sleight.RabbitTrick
         RectTransform contents;
         Font font;
         ScreenPage settingsReturn;
+        int programmePage;
         static readonly Color Ink = new Color32(25, 20, 35, 255), Velvet = new Color32(92, 31, 52, 255);
         static readonly Color Gold = new Color32(210, 156, 79, 255), Cream = new Color32(242, 222, 188, 255), Teal = new Color32(100, 220, 199, 255);
         public void Initialize(RabbitTrickGame owner)
@@ -126,18 +127,22 @@ namespace Sleight.RabbitTrick
         public void ShowLevels()
         {
             Clear(ScreenPage.Levels);
-            Heading("THE PROGRAMME / FIVE ACTS", "CHOOSE YOUR TRICK", "All five acts are available. Select a card to step onto the stage.");
-            string[] names = { "THE RABBIT", "THE SUBSTITUTION", "THE FLOATING LADY", "THE FLOWERING HAT", "THE GOLDEN TRANSFER" };
-            string[] detail = { "Hide a rabbit while the light is away.", "Trade the assistant for a dummy.", "Hide the support. Prove she can float.", "Release the dove. Reveal the flowers.", "Carry the orb behind the depth screens." };
-            for (int i = 0; i < 5; i++)
+            Heading(programmePage == 0 ? "THE PROGRAMME / ACT I: SLEIGHT OF HAND" : "THE PROGRAMME / ACT II: GRAND ILLUSIONS", "CHOOSE YOUR TRICK", "All ten acts are available. Choose a trick or turn the programme page.");
+            string[] names = { "THE RABBIT", "THE SUBSTITUTION", "THE FLOATING LADY", "THE FLOWERING HAT", "THE GOLDEN TRANSFER",
+                "THE INVISIBLE CARD", "THE WATER VAULT", "THE MIRROR SPLIT", "THE STILL RAIN", "THE VANISHING VAULT" };
+            string[] detail = { "Hide a rabbit while the light is away.", "Trade the assistant for a dummy.", "Hide the support. Prove she can float.", "Release the dove. Reveal the flowers.", "Carry the orb behind the depth screens.",
+                "Two palms conceal one impossible card.", "Drain the tank. Beat the air clock.", "Tune the mirrors before using the blade.", "Freeze the water. Make it rise.", "Balance the vault. Make it vanish." };
+            for (int item = 0; item < 5; item++)
             {
+                int i = programmePage * 5 + item;
                 int choice = i;
-                float x = 190 + (i % 3) * 407, y = 405 + (i / 3) * 155;
+                float x = 190 + (item % 3) * 407, y = 405 + (item / 3) * 155;
                 var card = Button("Level" + (i + 1), "", x, y, 382, () => game.BeginLevel(choice), 133);
-                Text("Number", card.transform, 20, 14, 60, 25, "0" + (i + 1), 18, Gold);
+                Text("Number", card.transform, 20, 14, 60, 25, (i + 1).ToString("00"), 18, Gold);
                 Text("Name", card.transform, 20, 43, 340, 40, names[i], 28, Cream);
                 Text("Detail", card.transform, 20, 89, 342, 30, detail[i], 17, new Color(0.71f, 0.64f, 0.71f));
             }
+            Button(programmePage == 0 ? "NextActs" : "PreviousActs", programmePage == 0 ? "ACT II: TRICKS 06 - 10  >" : "<  ACT I: TRICKS 01 - 05", 190, 712, 620, () => { programmePage = 1 - programmePage; ShowLevels(); }, 57);
             Button("BackHome", "MAIN MENU", 1030, 712, 378, ShowHome, 57);
         }
         public void ShowPause()

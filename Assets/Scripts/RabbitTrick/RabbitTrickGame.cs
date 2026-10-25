@@ -17,9 +17,10 @@ namespace Sleight.RabbitTrick
         public float curtainDelay = 2.2f;   // 成功后先让观众看清，再落幕
         public float closedHold = 1.0f;     // 幕合拢后停多久再拉开
         // 三关，难度逐级递增。第 1 关是原来的空箱变兔子（Trick == null），第 2、3 关各是一个 StageTrick。
-        public const int LevelCount = 5;
-        readonly StageTrick[] tricks = { null, new TrunkTrick(), new LevitationTrick(), new DoveHatTrick(), new DepthTransferTrick() };
-        static readonly float[] PatienceByLevel = { 65f, 70f, 100f, 100f, 120f };
+        public const int LevelCount = 10;
+        readonly StageTrick[] tricks = { null, new TrunkTrick(), new LevitationTrick(), new DoveHatTrick(), new DepthTransferTrick(),
+            new PalmCardTrick(), new WaterEscapeTrick(), new MirrorBladeTrick(), new StrobeRainTrick(), new VaultRainTrick() };
+        static readonly float[] PatienceByLevel = { 65f, 70f, 100f, 100f, 120f, 120f, 140f, 140f, 120f, 160f };
         float rabbitLookTime;
         bool rabbitShown, rabbitLookAtDancer;
         // 追光偏向舞台某一段：(机会, 区间左, 区间右, 最短停留, 最长停留)。
@@ -114,7 +115,7 @@ namespace Sleight.RabbitTrick
         public void EndDemo()
         {
             LastDemoSucceeded = IsFinished && !IsFailed;
-            LastDemoReport = $"level {Level + 1}: step {StepIndex}/{StepNames.Length}, failed={IsFailed} {FailureReason}, caption='{DemoCaption}'";
+            LastDemoReport = $"level {Level + 1}: step {StepIndex}/{StepNames.Length}, failed={IsFailed} {FailureReason}, caption='{DemoCaption}', mechanic='{Trick?.Status}'";
             InDemo = false;
             demo = null;
             Audience.Scripted = false;
@@ -207,7 +208,7 @@ namespace Sleight.RabbitTrick
             Booed = false;
             patienceSeconds = PatienceByLevel[Mathf.Clamp(Level, 0, PatienceByLevel.Length - 1)];
             var pace = PaceByLevel[Mathf.Clamp(Level, 0, PaceByLevel.Length - 1)];
-            Audience.SetBeam(Level == 2 ? 1.95f : 1.45f, Level == 2 ? 0.5f : 0.24f);
+            Audience.SetBeam(Level == 2 || Level == 7 ? 1.95f : 1.45f, Level == 2 || Level == 7 ? 0.5f : 0.24f);
             Audience.SetPace(pace.x, pace.y, pace.z, pace.w);
             var bias = BiasByLevel[Mathf.Clamp(Level, 0, BiasByLevel.Length - 1)];
             Audience.SetBias(bias[0], bias[1], bias[2], bias[3], bias[4]);
@@ -223,7 +224,7 @@ namespace Sleight.RabbitTrick
                 }
                 Trick?.Reset();
             }
-            Audience.ResetLight(Level == 0 ? BoxX : Level == 1 ? Trick.StartLightX : Hands.BodyPosition.x);
+            Audience.ResetLight(Level == 0 ? BoxX : Level == 1 || Level >= 5 ? Trick.StartLightX : Hands.BodyPosition.x);
             if (view != null) { view.SetLevel(Level); view.Draw(this); }
             Soundtrack?.PlayLevel(Level);
         }
